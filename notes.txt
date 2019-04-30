@@ -1,0 +1,1 @@
+1. do pre processing and palce the preprocessed images in the preprocessed_images folder

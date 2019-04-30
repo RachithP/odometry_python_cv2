@@ -1,0 +1,95 @@
+#!/usr/bin/env python
+'''
+ENPM 673 Spring 2019: Robot Perception
+Project 5 Odometry
+
+Author:
+Ashwin Varghese Kuruttukulam(ashwinvk94@gmail.com)
+Graduate Students in Robotics,
+University of Maryland, College Park
+'''
+import glob
+import numpy as np
+import cv2
+from matplotlib import pyplot as plt
+from ReadCameraModel import ReadCameraModel
+
+'''
+get matching pixel coordinates
+'''
+def getPixelCoordinates(kp1,kp2,matches):
+	# Initialize lists
+	list_kp1 = []
+	list_kp2 = []
+
+	# For each match...
+	for mat in matches:
+
+	    # Get the matching keypoints for each of the images
+	    img1_idx = mat.queryIdx
+	    img2_idx = mat.trainIdx
+
+	    # x - columns
+	    # y - rows
+	    # Get the coordinates
+	    (x1,y1) = kp1[img1_idx].pt
+	    (x2,y2) = kp2[img2_idx].pt
+
+	    # Append to each list
+	    list_kp1.append((x1, y1))
+	    list_kp2.append((x2, y2))
+	return list_kp1,list_kp2
+
+def extractMatchFeatures(image1,image2):
+	# Initiate SIFT detector
+	orb = cv2.ORB_create()
+
+	# find the keypoints and descriptors with SIFT
+	kp1, des1 = orb.detectAndCompute(image1,None)
+	kp2, des2 = orb.detectAndCompute(image2,None)
+
+	# create BFMatcher object
+	bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+
+	# Match descriptors.
+	matches = bf.match(des1,des2)
+
+	# Sort them in the order of their distance.
+	matches = sorted(matches, key = lambda x:x.distance)
+
+	pixelsImg1,pixelsImg2 = getPixelCoordinates(kp1,kp2,matches)
+
+	return pixelsImg1,pixelsImg2
+
+def extractImages(path):
+	# Read and store all images in the input folder
+	filenames = glob.glob(path+"/*.png")
+	filenames.sort()
+	return filenames
+
+#Get camera model info
+fx,fy,cx,cy,G_camera_image,LUT = ReadCameraModel('./model')
+
+path = './stereo/centre'
+filenames = extractImages(path)
+#Removing first 30 images because it is too bright
+del filenames[:30]
+rgbImages = []
+
+counter = 0
+for filename in filenames:
+	image = cv2.imread(filename,0)
+	convertedImage = cv2.cvtColor(image, cv2.COLOR_BAYER_GR2RGB)
+	# convertedImage = cv2.cvtColor(convertedImage, cv2.COLOR_RGB2GRAY)
+	rgbImages.append(convertedImage)
+	counter += 1
+	if counter >100:
+		break
+# cv2.imshow('image',rgbImages[0])
+# cv2.imshow('image',rgbImages[1])
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
+
+pixelsImg1,pixelsImg2 = extractMatchFeatures(rgbImages[0],rgbImages[1])
+
+print pixelsImg1,pixelsImg2
