@@ -17,8 +17,6 @@ import random
 '''
 get matching pixel coordinates
 '''
-
-
 def getPixelCoordinates(kp1, kp2, matches):
 	# Initialize lists
 	list_kp1 = []
@@ -41,6 +39,17 @@ def getPixelCoordinates(kp1, kp2, matches):
 		list_kp2.append((x2, y2))
 	return list_kp1, list_kp2
 
+def checkRank2(uncheckedF):
+	u, s, vh = np.linalg.svd(uncheckedF)
+	if s[-1] != 0:
+		s[-1] = 0
+
+	S = np.zeros((s.shape[0], u.shape[0]), dtype=u.dtype)
+	np.fill_diagonal(S, s)
+
+	# Re-compute E
+	F = u.dot(S).dot(vh)
+	return F
 
 def extractMatchFeatures(image1, image2):
 	# Initiate SIFT detector
@@ -95,7 +104,7 @@ def getRand(pixelsImg1):
 			break
 	return randomPixelInds
 
-def RANSAC(pixelsImg1,pixelsImg2):
+def RANSAC(pixelsImg1,pixelsImg2,epsilonThresh):
 	counter = 1
 	while 1:
 		randomPixelInds = getRand(pixelsImg1)
@@ -113,13 +122,13 @@ def RANSAC(pixelsImg1,pixelsImg2):
 			img2Pixels = np.array([pixelsImg2[ind][0],pixelsImg2[ind][1],1])
 			temp = np.matmul(img2Pixels.transpose(),RandomF)
 			epsilon = np.matmul(temp,img2Pixels)
-			if abs(epsilon)<0.9:
+			if abs(epsilon)<epsilonThresh:
 				inliersInds.append(ind)
 			# print epsilon
 			# print inliersInds
 		inlierPercentage = float(len(inliersInds))/len(pixelsImg1)
-		if inlierPercentage>0.9:
-			print inlierPercentage
+		if inlierPercentage>epsilonThresh:
+			# print inlierPercentage
 			break
 	
 	inlierImg1Pixels = []
@@ -129,7 +138,7 @@ def RANSAC(pixelsImg1,pixelsImg2):
 		inlierImg2Pixels.append(pixelsImg2[k])
 	inliersF = computeFundamentalMatrix(inlierImg1Pixels,inlierImg2Pixels)
 	
-	return F
+	return inliersF
 
 def computeCorrespondMat(im1Px,im2Px):	
 	x1,y1 = im1Px[0][0],im1Px[0][1]
@@ -141,8 +150,11 @@ def computeCorrespondMat(im1Px,im2Px):
 		row = np.array([x1*x1_,x1*y1_,x1,y1*x1_,y1*y1_,y1,x1_,y1_,1])
 		mat = np.vstack((mat,row))
 	return mat
+
 #Get camera model info
 fx,fy,cx,cy,G_camera_image,LUT = ReadCameraModel('./model')
+
+epsilonThresh = 0.9
 
 path = '../Oxford_dataset/stereo/undistort'
 filenames = extractImages(path)
@@ -165,6 +177,12 @@ for filename in filenames:
 # cv2.waitKey(0)
 # cv2.destroyAllWindows()
 print('done')
+
 for imageIndex in range(len(rgbImages)-1):
 	pixelsImg1,pixelsImg2 = extractMatchFeatures(rgbImages[imageIndex],rgbImages[imageIndex+1])
-	F = RANSAC(pixelsImg1,pixelsImg2)
+	uncheckedF = RANSAC(pixelsImg1,pixelsImg2,epsilonThresh)
+	# print uncheckedF
+	# print np.linalg.matrix_rank(uncheckedF)
+	F = checkRank2(uncheckedF)
+	# print np.linalg.matrix_rank(F)
+	# print F
