@@ -11,35 +11,12 @@ Graduate Students in Robotics,
 University of Maryland, College Park
 '''
 
-__author__ = 'rachith'
 
 import numpy as np
 from numpy.linalg import svd, det
 
 
-def extractEssentialMatrix(F, K):
-	'''
-	This function calculates Essential Matrix from Fundamental Matrix
-	:param F: Fundamental Matrix
-	:param K: Calibration Matrix
-	:return: Essential Matrix
-	'''
-
-	E = K.T.dot(F).dot(K)
-	u, s, vh = svd(E)
-	if s[-1] != 0:
-		s[-1] = 0
-
-	S = np.zeros((s.shape[0], u.shape[0]), dtype=u.dtype)
-	np.fill_diagonal(S, s)
-
-	# Re-compute E
-	E = u.dot(S).dot(vh)
-
-	return E
-
-
-def extractPose(E):
+def getPose(E):
 	'''
 	This function extracts all possible configurations of pose
 	:param E: Essential Matrix
@@ -75,3 +52,33 @@ def extractPose(E):
 	if det(R4) == -1:
 		c4 = -c4
 		R4 = -R4
+
+
+	return c1, R1, c2, R2, c3, R3, c4, R4
+
+
+def extractPose(F, K):
+	'''
+	This function calculates Essential Matrix from Fundamental Matrix
+	:param F: Fundamental Matrix
+	:param K: Calibration Matrix
+	:return: Essential Matrix
+	'''
+
+	K = np.array(K)
+	E = K.T.dot(F).dot(K)
+	u, s, vh = svd(E)
+	if s[-1] != 0:
+		s[-1] = 0
+
+	S = np.zeros((s.shape[0], u.shape[0]), dtype=u.dtype)
+	np.fill_diagonal(S, s)
+
+	# Re-compute E
+	E = u.dot(S).dot(vh)
+
+	c1, R1, c2, R2, c3, R3, c4, R4 = getPose(E)
+
+	return c1, R1, c2, R2, c3, R3, c4, R4
+
+
