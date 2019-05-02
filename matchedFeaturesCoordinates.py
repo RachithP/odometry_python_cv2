@@ -68,6 +68,9 @@ def extractMatchFeatures(image1, image2):
 	# Sort them in the order of their distance.
 	matches = sorted(matches, key=lambda x: x.distance)
 
+	#Taking only the best 50
+	matches = matches[:50]
+
 	pixelsImg1, pixelsImg2 = getPixelCoordinates(kp1, kp2, matches)
 
 	# code to visualize the matched features

@@ -134,4 +134,4 @@ def RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh):
 	# print np.linalg.matrix_rank(F)
 	# 	print F
 
-	return F
+	return F,inlierImg1Pixels,inlierImg2Pixels
