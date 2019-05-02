@@ -2,7 +2,7 @@
 
 '''
 ENPM 673 Spring 2019: Robot Perception
-Project 5 Odometry
+Project 5: Visual Odometry
 
 Author:
 Ashwin Varghese Kuruttukulam(ashwinvk94@gmail.com)

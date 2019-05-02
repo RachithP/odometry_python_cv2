@@ -2,7 +2,7 @@
 
 '''
 ENPM 673 Spring 2019: Robot Perception
-Project 5 Odometry
+Project 5: Visual Odometry
 
 Author:
 Ashwin Varghese Kuruttukulam(ashwinvk94@gmail.com)
@@ -17,7 +17,7 @@ import glob
 from UndistortImage import UndistortImage
 
 
-def preProcessData(path_to_model, path_to_images):
+def undistortImage(path_to_model, path_to_images):
 	'''
 	Here, we undistort the dataset images
 	:param path_to_model:
@@ -28,9 +28,10 @@ def preProcessData(path_to_model, path_to_images):
 	# Read camera parameters
 	fx, fy, cx, cy, G_camera_image, LUT = ReadCameraModel(path_to_model)
 
-	# iterate through each image, convert to RGB, undistort(function takes all channels in input)
+	# iterate through each image, convert to BGR, undistort(function takes all channels in input)
 	images = glob.glob(path_to_images+"/*.png")
 	images.sort()
+
 	for cnt, image in enumerate(images):
 		frame = cv2.imread(image, -1)
 		frame_RGB = cv2.cvtColor(frame, cv2.COLOR_BayerGR2BGR)
