@@ -1,12 +1,10 @@
-#!/usr/bin/env python2
-
+#!/usr/bin/env python
 '''
 ENPM 673 Spring 2019: Robot Perception
 Project 5 Odometry
 
 Author:
 Ashwin Varghese Kuruttukulam(ashwinvk94@gmail.com)
-Rachith Prakash (rachithprakash@gmail.com)
 Graduate Students in Robotics,
 University of Maryland, College Park
 '''
@@ -16,6 +14,8 @@ import cv2
 from matplotlib import pyplot as plt
 from ReadCameraModel import ReadCameraModel
 import random
+
+import extractPose
 '''
 get matching pixel coordinates
 '''
@@ -118,6 +118,11 @@ def RANSAC(pixelsImg1,pixelsImg2,epsilonThresh):
 			randImg1Pixels.append(pixelsImg1[k])
 			randImg2Pixels.append(pixelsImg2[k])
 		RandomF = computeFundamentalMatrix(randImg1Pixels,randImg2Pixels)
+		# print 'rank before'
+		# print np.linalg.matrix_rank(RandomF)		
+		RandomF = checkRank2(RandomF)
+		# print 'rank after'
+		# print np.linalg.matrix_rank(RandomF)		
 		inliersInds = []
 		for ind in range(len(pixelsImg1)):
 			img1Pixels = np.array([pixelsImg1[ind][0],pixelsImg1[ind][1],1])
@@ -184,7 +189,9 @@ for imageIndex in range(len(rgbImages)-1):
 	pixelsImg1,pixelsImg2 = extractMatchFeatures(rgbImages[imageIndex],rgbImages[imageIndex+1])
 	uncheckedF = RANSAC(pixelsImg1,pixelsImg2,epsilonThresh)
 	# print uncheckedF
+	# print 'before'
 	# print np.linalg.matrix_rank(uncheckedF)
 	F = checkRank2(uncheckedF)
+
 	# print np.linalg.matrix_rank(F)
 	# print F
