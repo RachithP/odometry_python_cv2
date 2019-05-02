@@ -33,8 +33,10 @@ def preProcessData(path_to_model, path_to_images):
 
 	# iterate through each image, convert to RGB, undistort(function takes all channels in input)
 	images = glob.glob(path_to_images+"/*.png")
+	# print images
 	images.sort()
 	for cnt, image in enumerate(images):
+		print cnt
 		frame = cv2.imread(image, -1)
 		frame_RGB = cv2.cvtColor(frame, cv2.COLOR_BayerGR2BGR)
 		undistorted_image = UndistortImage(frame_RGB, LUT)
