@@ -13,7 +13,7 @@ import numpy as np
 import cv2
 from matplotlib import pyplot as plt
 from ReadCameraModel import ReadCameraModel
-
+import random
 '''
 get matching pixel coordinates
 '''
@@ -61,16 +61,80 @@ def extractMatchFeatures(image1,image2):
 
 	return pixelsImg1,pixelsImg2
 
+def computeFundamentalMatrix(pixelsImg1,pixelsImg2):
+	corMatRow = computeCorrespondMat(pixelsImg1,pixelsImg2)
+	u,s,vh = np.linalg.svd(corMatRow)
+	#Check Rachith
+	v = vh.transpose()
+	lastCol = v[:,v.shape[1]-1]
+	return np.vstack((lastCol[0:3],lastCol[3:6],lastCol[6:9]))
+
 def extractImages(path):
 	# Read and store all images in the input folder
 	filenames = glob.glob(path+"/*.png")
 	filenames.sort()
 	return filenames
 
+def getRand(pixelsImg1):
+	randomPixelInds = []
+	while 1:
+		randomPixelInd = random.randint(0,len(pixelsImg1)-1)
+		if randomPixelInd not in randomPixelInds:
+			randomPixelInds.append(randomPixelInd)
+		if len(randomPixelInds)==4:
+			break
+	return randomPixelInds
+
+def RANSAC(pixelsImg1,pixelsImg2):
+	counter = 1
+	while 1:
+		randomPixelInds = getRand(pixelsImg1)
+		
+		# print randomPixelInds
+		randImg1Pixels = []
+		randImg2Pixels = []
+		for k in randomPixelInds:
+			randImg1Pixels.append(pixelsImg1[k])
+			randImg2Pixels.append(pixelsImg2[k])
+		RandomF = computeFundamentalMatrix(randImg1Pixels,randImg2Pixels)
+		inliersInds = []
+		for ind in range(len(pixelsImg1)):
+			img1Pixels = np.array([pixelsImg1[ind][0],pixelsImg1[ind][1],1])
+			img2Pixels = np.array([pixelsImg2[ind][0],pixelsImg2[ind][1],1])
+			temp = np.matmul(img2Pixels.transpose(),RandomF)
+			epsilon = np.matmul(temp,img2Pixels)
+			if abs(epsilon)<0.9:
+				inliersInds.append(ind)
+			# print epsilon
+			# print inliersInds
+		inlierPercentage = float(len(inliersInds))/len(pixelsImg1)
+		if inlierPercentage>0.9:
+			print inlierPercentage
+			break
+	
+	inlierImg1Pixels = []
+	inlierImg2Pixels = []
+	for k in inliersInds:
+		inlierImg1Pixels.append(pixelsImg1[k])
+		inlierImg2Pixels.append(pixelsImg2[k])
+	inliersF = computeFundamentalMatrix(inlierImg1Pixels,inlierImg2Pixels)
+	
+	return F
+
+def computeCorrespondMat(im1Px,im2Px):	
+	x1,y1 = im1Px[0][0],im1Px[0][1]
+	x1_,y1_ = im2Px[0][0],im2Px[0][1]
+	mat = np.array([x1*x1_,x1*y1_,x1,y1*x1_,y1*y1_,y1,x1_,y1_,1])
+	for k in range(1,len(im1Px)):
+		x1,y1 = im1Px[k][0],im1Px[k][1]
+		x1_,y1_ = im2Px[k][0],im2Px[k][1]
+		row = np.array([x1*x1_,x1*y1_,x1,y1*x1_,y1*y1_,y1,x1_,y1_,1])
+		mat = np.vstack((mat,row))
+	return mat
 #Get camera model info
 fx,fy,cx,cy,G_camera_image,LUT = ReadCameraModel('./model')
 
-path = './stereo/centre'
+path = '../Oxford_dataset/stereo/undistort'
 filenames = extractImages(path)
 #Removing first 30 images because it is too bright
 del filenames[:30]
@@ -79,9 +143,9 @@ rgbImages = []
 counter = 0
 for filename in filenames:
 	image = cv2.imread(filename,0)
-	convertedImage = cv2.cvtColor(image, cv2.COLOR_BAYER_GR2RGB)
+	# convertedImage = cv2.cvtColor(image, cv2.COLOR_BAYER_GR2RGB)
 	# convertedImage = cv2.cvtColor(convertedImage, cv2.COLOR_RGB2GRAY)
-	rgbImages.append(convertedImage)
+	rgbImages.append(image)
 	counter += 1
 	if counter >100:
 		break
@@ -89,7 +153,8 @@ for filename in filenames:
 # cv2.imshow('image',rgbImages[1])
 # cv2.waitKey(0)
 # cv2.destroyAllWindows()
-
-pixelsImg1,pixelsImg2 = extractMatchFeatures(rgbImages[0],rgbImages[1])
-
-print pixelsImg1,pixelsImg2
+print('done')
+for imageIndex in range(len(rgbImages)-1):
+	pixelsImg1,pixelsImg2 = extractMatchFeatures(rgbImages[imageIndex],rgbImages[imageIndex+1])
+	F = RANSAC(pixelsImg1,pixelsImg2)
+	
