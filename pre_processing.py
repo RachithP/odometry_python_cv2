@@ -1,4 +1,16 @@
 #!/usr/bin/env python2
+
+'''
+ENPM 673 Spring 2019: Robot Perception
+Project 5 Odometry
+
+Author:
+Ashwin Varghese Kuruttukulam(ashwinvk94@gmail.com)
+Rachith Prakash (rachithprakash@gmail.com)
+Graduate Students in Robotics,
+University of Maryland, College Park
+'''
+
 import cv2
 from ReadCameraModel import ReadCameraModel
 import glob
@@ -13,7 +25,7 @@ def preProcessData(path_to_model, path_to_images):
 	Here, we undistort the dataset images
 	:param path_to_model:
 	:param path_to_images:
-	:return:
+	:return: K - calibration matrix
 	'''
 
 	# Read camera parameters
@@ -28,6 +40,9 @@ def preProcessData(path_to_model, path_to_images):
 		undistorted_image = UndistortImage(frame_RGB, LUT)
 		cv2.imwrite(path_to_images + "./undistort/frame" + str(cnt) + ".png", undistorted_image)
 
+	K = [[fx, 0, 0], [0, fy, 0], [cx, cy, 1]]
+
+	return K
 
 def main():
 
