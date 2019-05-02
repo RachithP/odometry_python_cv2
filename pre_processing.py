@@ -1,9 +1,9 @@
 #!/usr/bin/env python2
 import cv2
-import numpy as np
 from ReadCameraModel import ReadCameraModel
 import glob
 from UndistortImage import UndistortImage
+import argparse
 
 __author__ = 'rachith'
 
@@ -28,10 +28,19 @@ def preProcessData(path_to_model, path_to_images):
 		frame = cv2.imread(image, -1)
 		frame_RGB = cv2.cvtColor(frame, cv2.COLOR_BayerGR2BGR)
 		undistorted_image = UndistortImage(frame_RGB, LUT)
-		cv2.imwrite(path_to_images + "/../undistort/frame" + str(cnt) + ".png", undistorted_image)
+		cv2.imwrite(path_to_images + "./undistort/frame" + str(cnt) + ".png", undistorted_image)
+
 
 def main():
-	preProcessData(path_to_model='../Oxford_dataset/model', path_to_images='../Oxford_dataset/stereo/centre')
+
+	# Parse input arguments
+	Parser = argparse.ArgumentParser()
+	Parser.add_argument('--Path', default="./stereo/centre", help='Path to dataset, Default:./stereo/centre')
+	Args = Parser.parse_args()
+	path = Args.Path
+
+	# Pre-process the data
+	preProcessData(path_to_model='./model', path_to_images=path)
 
 
 if __name__ == "__main__":
