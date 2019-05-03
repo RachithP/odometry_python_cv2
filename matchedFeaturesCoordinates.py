@@ -69,7 +69,7 @@ def extractMatchFeatures(image1, image2):
 	matches = sorted(matches, key=lambda x: x.distance)
 
 	#Taking only the best 50
-	matches = matches[:50]
+	matches = matches[:40]
 
 	pixelsImg1, pixelsImg2 = getPixelCoordinates(kp1, kp2, matches)
 

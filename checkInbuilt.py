@@ -117,7 +117,7 @@ def main():
 	Parser = argparse.ArgumentParser()
 	Parser.add_argument('--Path', default="../Oxford_dataset/stereo/centre",
 						help='Path to dataset, Default:../Oxford_dataset/stereo/centre')
-	Parser.add_argument('--ransacEpsilonThreshold', default=0.15,
+	Parser.add_argument('--ransacEpsilonThreshold', default=0.5,
 						help='Threshold used for deciding inlier during RANSAC, Default:0.15')
 	Parser.add_argument('--inlierRatioThreshold', default=0.8,
 						help='Threshold to consider a fundamental matrix as valid, Default:0.8')
@@ -135,7 +135,7 @@ def main():
 
 	# extract images from undistort
 	new_path = './undistort'
-	bgrImages = extractImages(new_path, 20)
+	bgrImages = extractImages(new_path, 100)
 
 	# extract calibration matrix
 	K = dataPrep.extractCalibrationMatrix(path_to_model='./model')
@@ -146,9 +146,16 @@ def main():
 	for imageIndex in range(len(bgrImages) - 1):
 		pixelsImg1, pixelsImg2 = extractMatchFeatures(bgrImages[imageIndex], bgrImages[imageIndex + 1])
 		# vizMatches(bgrImages[imageIndex],bgrImages[imageIndex + 1],pixelsImg1,pixelsImg2)
+		inlierImg1Pixels = pixelsImg1
+		inlierImg2Pixels = pixelsImg2
+		# F, inlierImg1Pixels, inlierImg2Pixels, _, _ = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
+		
+		F_cv2 = cv2.findFundamentalMat(np.array(inlierImg1Pixels), np.array(inlierImg2Pixels), method=cv2.FM_8POINT)
+		# print F
 
-		F, inlierImg1Pixels, inlierImg2Pixels, _, _ = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
-		# vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels)
+		F = F_cv2[0]
+		print F
+		# vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], pixelsImg1, pixelsImg2)
 
 		# this is to perform triangulation using LS method
 		# world_coordinates = triangulation.linearTriangulationLS(K, inlierImg1Pixels, inlierImg2Pixels)
@@ -161,11 +168,11 @@ def main():
 		# Combining RT and mulitplying with the previous RT
 		newR,newT,prevRT = combineRT(r,t,prevRT)
 		
-		plotLine(image,a,b,c)
+		# plotLine(image,a,b,c)
 		
 		T.append(newT)
 		R.append(newR)
-		vizCameraPose(R, T)
+		# vizCameraPose(R, T)
 	# cv2.destroyAllWindows()
 
 	# visualize the camera pose
