@@ -20,6 +20,7 @@ from ransac import RANSAC
 from matchedFeaturesCoordinates import extractMatchFeatures
 import triangulation
 
+
 def vizMatches(image1, image2, pixelsImg1, pixelsImg2):
 	'''
 	Visualize the feature matched between pair of images
@@ -42,7 +43,8 @@ def vizMatches(image1, image2, pixelsImg1, pixelsImg2):
 		# draw the keypoints
 		# print m.queryIdx, m.trainIdx, m.distance
 		color = tuple([np.random.randint(0, 255) for _ in xrange(3)])
-		cv2.line(view, (int(pixelsImg1[ind][0]), int(pixelsImg1[ind][1])), (int(pixelsImg2[ind][0] + w1), int(pixelsImg2[ind][1])), color)
+		cv2.line(view, (int(pixelsImg1[ind][0]), int(pixelsImg1[ind][1])),
+				 (int(pixelsImg2[ind][0] + w1), int(pixelsImg2[ind][1])), color)
 
 	cv2.imshow("view", view)
 	cv2.waitKey(0)
@@ -57,15 +59,14 @@ def extractImages(path, number_of_images):
 	# Read and store all images in the input folder
 	filesnumber = sorted(glob.glob(path + "/frame*.png"))
 	filenames = []
-	# Uncomment his to run on all the images
+
+	# Uncomment this to run on all the images
 	# for k in range(30,len(filesnumber)):
 	# Removing first 30 images because it is too bright
-	for k in range(30,number_of_images+30):
-		filenames.append(path + "/frame"+str(k)+".png")
-
+	for k in range(30, number_of_images + 30):
+		filenames.append(path + "/frame" + str(k) + ".png")
 
 	images = []
-	counter = 0
 	for filename in filenames:
 		im_read = cv2.imread(filename, -1)
 		images.append(im_read)
@@ -104,11 +105,12 @@ def main():
 	K = dataPrep.extractCalibrationMatrix(path_to_model='./model')
 
 	for imageIndex in range(len(bgrImages) - 1):
-
 		pixelsImg1, pixelsImg2 = extractMatchFeatures(bgrImages[imageIndex], bgrImages[imageIndex + 1])
 		# vizMatches(bgrImages[imageIndex],bgrImages[imageIndex + 1],pixelsImg1,pixelsImg2)
 
-		F, inlierImg1Pixels, inlierImg2Pixels, best_img1_pixel, best_img2_pixel = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
+		F, inlierImg1Pixels, inlierImg2Pixels, best_img1_pixel, best_img2_pixel = RANSAC(pixelsImg1, pixelsImg2,
+																						 epsilonThresh,
+																						 inlierRatioThresh)
 		vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels)
 
 		# this is to perform triangulation using LS method
@@ -117,12 +119,10 @@ def main():
 		# this is to perform triangulation using Eigen method
 		# world_coordinates = triangulation.linearTriangulationEigen(K, inlierImg1Pixels, inlierImg2Pixels)
 
-
 		t1, r1, t2, r2, t3, r3, t4, r4 = extractPose.extractPose(F, K, world_coordinates)
 
-
-
 	cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
 	main()
