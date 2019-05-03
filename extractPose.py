@@ -4,7 +4,7 @@
 ENPM 673 Spring 2019: Robot Perception
 Project 5: Visual Odometry
 
-Author:
+Authors:
 Ashwin Varghese Kuruttukulam(ashwinvk94@gmail.com)
 Rachith Prakash (rachithprakash@gmail.com)
 Graduate Students in Robotics,
@@ -16,12 +16,38 @@ import numpy as np
 from numpy.linalg import svd, det
 
 
-def getPose(E):
+def checkChirality(C, R, X):
 	'''
-	This function extracts all possible configurations of pose
-	:param E: Essential Matrix
-	:return:
+	Check chirality condition and return true or false
+	:param C:
+	:param R:
+	:param X:
+	:return: 1/0
 	'''
+	return np.dot(R[2, :], X - C) > 0
+
+
+def extractPose(F, K, world_coordinates):
+	'''
+	This function calculates Essential Matrix from Fundamental Matrix
+	:param F: Fundamental Matrix
+	:param K: Calibration Matrix
+	:return: Essential Matrix
+	'''
+
+	K = np.array(K)
+	E = K.T.dot(F).dot(K)
+	u, s, vh = svd(E)
+	if s[-1] != 0:
+		s[-1] = 0
+
+	S = np.zeros((s.shape[0], u.shape[0]), dtype=u.dtype)
+	np.fill_diagonal(S, s)
+
+	# Re-compute E
+	E = u.dot(S).dot(vh)
+
+	# svd of Essential matrix to compute Rotation and translation matrices
 	u, s, vh = svd(E)
 	W = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
 
@@ -52,32 +78,6 @@ def getPose(E):
 	if det(R4) == -1:
 		c4 = -c4
 		R4 = -R4
-
-
-	return c1, R1, c2, R2, c3, R3, c4, R4
-
-
-def extractPose(F, K):
-	'''
-	This function calculates Essential Matrix from Fundamental Matrix
-	:param F: Fundamental Matrix
-	:param K: Calibration Matrix
-	:return: Essential Matrix
-	'''
-
-	K = np.array(K)
-	E = K.T.dot(F).dot(K)
-	u, s, vh = svd(E)
-	if s[-1] != 0:
-		s[-1] = 0
-
-	S = np.zeros((s.shape[0], u.shape[0]), dtype=u.dtype)
-	np.fill_diagonal(S, s)
-
-	# Re-compute E
-	E = u.dot(S).dot(vh)
-
-	c1, R1, c2, R2, c3, R3, c4, R4 = getPose(E)
 
 	return c1, R1, c2, R2, c3, R3, c4, R4
 

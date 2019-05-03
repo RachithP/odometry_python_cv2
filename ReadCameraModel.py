@@ -39,10 +39,10 @@ def ReadCameraModel(models_dir):
 
     intrinsics = np.loadtxt(intrinsics_path)
     # Intrinsics
-    fx = intrinsics[0,0]
-    fy = intrinsics[0,1]
-    cx = intrinsics[0,2]
-    cy = intrinsics[0,3]
+    fx = intrinsics[0, 0]
+    fy = intrinsics[0, 1]
+    cx = intrinsics[0, 2]
+    cy = intrinsics[0, 3]
     # 4x4 matrix that transforms x-forward coordinate frame at camera origin and image frame for specific lens
     G_camera_image = intrinsics[1:5,0:4]
     # LUT for undistortion

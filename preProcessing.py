@@ -46,6 +46,6 @@ def extractCalibrationMatrix(path_to_model):
 	# Read camera parameters
 	fx, fy, cx, cy, G_camera_image, LUT = ReadCameraModel(path_to_model)
 
-	K = [[fx, 0, 0], [0, fy, 0], [cx, cy, 1]]
+	K = [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]
 
 	return K

@@ -4,7 +4,7 @@
 ENPM 673 Spring 2019: Robot Perception
 Project 5: Visual Odometry
 
-Author:
+Authors:
 Ashwin Varghese Kuruttukulam(ashwinvk94@gmail.com)
 Rachith Prakash (rachithprakash@gmail.com)
 Graduate Students in Robotics,
@@ -77,11 +77,23 @@ def checkRank2(uncheckedF):
 
 
 def RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh):
+	'''
+	Apply RANSAC for robust estimation of fundamental matrix
+	:param pixelsImg1:
+	:param pixelsImg2:
+	:param epsilonThresh:
+	:param inlierRatioThresh:
+	:return:
+	'''
 	# seed random values - This is done to get same random values everytime we run this FILE!
 	random.seed(1)
 
 	counter = 1
 	max_value = len(pixelsImg1) - 1
+
+	best_img1_pixel = (0, 0)  # (x,y) format
+	best_img2_pixel = (0, 0)
+	min_epsilon = 10  # used to obtain pixel giving least error
 
 	while 1:
 
@@ -112,6 +124,12 @@ def RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh):
 			if abs(epsilon) < epsilonThresh:
 				inliersInds.append(ind)
 
+				# store the pixel coordinates that gave least error - Used for linear triangulation
+				if abs(epsilon) < min_epsilon:
+					min_epsilon = abs(epsilon)
+					best_img1_pixel = img1Pixels[:2]
+					best_img2_pixel = img2Pixels[:2]
+
 		inlierPercentage = float(len(inliersInds)) / len(pixelsImg1)
 		if inlierPercentage > inlierRatioThresh:
 			print('Yaay!!, Found inlier ratio to be ', inlierPercentage)
@@ -134,4 +152,4 @@ def RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh):
 	# print np.linalg.matrix_rank(F)
 	# 	print F
 
-	return F,inlierImg1Pixels,inlierImg2Pixels
+	return F, inlierImg1Pixels, inlierImg2Pixels, best_img1_pixel, best_img2_pixel
