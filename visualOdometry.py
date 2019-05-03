@@ -21,6 +21,8 @@ from matchedFeaturesCoordinates import extractMatchFeatures
 import triangulation
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D as axes3D
+import checkF
+
 
 def vizMatches(image1, image2, pixelsImg1, pixelsImg2):
 	'''
@@ -133,6 +135,7 @@ def main():
 		F, inlierImg1Pixels, inlierImg2Pixels, _, _ = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
 		# vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels)
 
+		checkF.isFValid(F, inlierImg1Pixels, inlierImg2Pixels, bgrImages[imageIndex], bgrImages[imageIndex + 1])
 		# this is to perform triangulation using LS method
 		# world_coordinates = triangulation.linearTriangulationLS(K, inlierImg1Pixels, inlierImg2Pixels)
 
