@@ -111,7 +111,12 @@ def main():
 		F, inlierImg1Pixels, inlierImg2Pixels, best_img1_pixel, best_img2_pixel = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
 		vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels)
 
-		world_coordinates = triangulation.linearTriangulation(K, best_img1_pixel, best_img2_pixel, inlierImg1Pixels, inlierImg2Pixels)
+		# this is to perform triangulation using LS method
+		world_coordinates = triangulation.linearTriangulationLS(K, inlierImg1Pixels, inlierImg2Pixels)
+
+		# this is to perform triangulation using Eigen method
+		# world_coordinates = triangulation.linearTriangulationEigen(K, inlierImg1Pixels, inlierImg2Pixels)
+
 
 		t1, r1, t2, r2, t3, r3, t4, r4 = extractPose.extractPose(F, K, world_coordinates)
 
