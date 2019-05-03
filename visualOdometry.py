@@ -22,6 +22,8 @@ from matchedFeaturesCoordinates import extractMatchFeatures
 import triangulation
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D as axes3D
+import checkF
+
 
 def vizMatches(image1, image2, pixelsImg1, pixelsImg2):
 	'''
@@ -96,6 +98,7 @@ def vizCameraPose(R, T):
 	plt.title('Camera movement')
 	plt.show()
 
+
 def combineRT(r,t,prevRT):
 	temp = np.hstack((r,t.reshape(3,1)))
 	RT = np.vstack((temp,np.array([0,0,0,1])))
@@ -105,12 +108,6 @@ def combineRT(r,t,prevRT):
 	newT = np.array(RT[0:3,3])
 	return newR,newT,prevRT
 
-def plotLine(image,a,b,c):
-	plt.imshow(image)
-	x = np.linspace(0,image.shape[1],image.shape[1])
-	y = -((a*x)+c)/b
-	plt.plot(x,y, linewidth=1.0)
-	plt.show()
 
 def main():
 	# Parse input arguments
@@ -142,7 +139,8 @@ def main():
 
 	T = []
 	R = []
-	prevRT = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]])
+	prevRT = np.diagflat([1, 1, 1, 1])
+
 	for imageIndex in range(len(bgrImages) - 1):
 		pixelsImg1, pixelsImg2 = extractMatchFeatures(bgrImages[imageIndex], bgrImages[imageIndex + 1])
 		# vizMatches(bgrImages[imageIndex],bgrImages[imageIndex + 1],pixelsImg1,pixelsImg2)
@@ -150,6 +148,7 @@ def main():
 		F, inlierImg1Pixels, inlierImg2Pixels, _, _ = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
 		# vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels)
 
+		checkF.isFValid(F, inlierImg1Pixels, inlierImg2Pixels, bgrImages[imageIndex], bgrImages[imageIndex + 1])
 		# this is to perform triangulation using LS method
 		# world_coordinates = triangulation.linearTriangulationLS(K, inlierImg1Pixels, inlierImg2Pixels)
 
@@ -158,11 +157,9 @@ def main():
 
 		t, r = extractPose.extractPose(F, K, world_coordinates)
 
-		# Combining RT and mulitplying with the previous RT
-		newR,newT,prevRT = combineRT(r,t,prevRT)
-		
-		plotLine(image,a,b,c)
-		
+		# Combining RT and multiplying with the previous RT
+		newR, newT, prevRT = combineRT(r, t, prevRT)
+
 		T.append(newT)
 		R.append(newR)
 		vizCameraPose(R, T)
