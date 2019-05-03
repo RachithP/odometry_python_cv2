@@ -98,6 +98,7 @@ def vizCameraPose(R, T):
 	plt.title('Camera movement')
 	plt.show()
 
+
 def combineRT(r,t,prevRT):
 	temp = np.hstack((r,t.reshape(3,1)))
 	RT = np.vstack((temp,np.array([0,0,0,1])))
@@ -107,12 +108,6 @@ def combineRT(r,t,prevRT):
 	newT = np.array(RT[0:3,3])
 	return newR,newT,prevRT
 
-def plotLine(image,a,b,c):
-	plt.imshow(image)
-	x = np.linspace(0,image.shape[1],image.shape[1])
-	y = -((a*x)+c)/b
-	plt.plot(x,y, linewidth=1.0)
-	plt.show()
 
 def main():
 	# Parse input arguments
@@ -165,8 +160,6 @@ def main():
 		# Combining RT and multiplying with the previous RT
 		newR, newT, prevRT = combineRT(r, t, prevRT)
 
-		# plotLine(image,a,b,c)
-		
 		T.append(newT)
 		R.append(newR)
 		

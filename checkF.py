@@ -13,6 +13,24 @@ University of Maryland, College Park
 
 import numpy as np
 import cv2
+from matplotlib import pyplot as plt
+
+
+def plotLine(image, a, b, c):
+	'''
+	Function to plot line of an image given the line parameters in the form ax+by+x=0
+	:param image:
+	:param a:
+	:param b:
+	:param c:
+	:return:
+	'''
+	plt.imshow(image)
+	x = np.linspace(0, image.shape[1], image.shape[1])
+	y = - ((a * x) + c) / b
+	plt.plot(x, y, linewidth=1.0)
+	# plt.show()
+
 
 def calculateEpipoles(F):
 	'''
@@ -32,6 +50,7 @@ def calculateEpipoles(F):
 	# get right-eigenvector for left epipole
 	right_eigenvector = eigen_vectors[:, -1]
 	right_eigenvector = right_eigenvector / right_eigenvector[2]
+
 	# right image epipole is the left null-space of the matrix
 
 	return right_eigenvector
@@ -46,22 +65,26 @@ def isFValid(F, img1_pixels, img2_pixels, image1, image2):
 	:return:
 	'''
 
-	for pixel in img1_pixels:
-		# line = F.dot([img1_pixels[0], img1_pixels[1], 1])
+	# for now gives right eigen vector - left epipole
+	left_epipole = calculateEpipoles(F)
+	print('epipole on the left image: ', left_epipole)
 
-		# norm = line[0]**2 + line[1]**2
+	for ind in range(len(img2_pixels)):
 
-		# line = line / norm
+		pixel = img2_pixels[ind]
+		homogeneous_point = np.array([pixel[0], pixel[1], 1])
 
+		epipolar_line = homogeneous_point.dot(F)
 
-		# for now gives right eigen vector - left epipole
-		left_epipole = calculateEpipoles(F)
+		norm = epipolar_line[0]**2 + epipolar_line[1]**2
 
+		epipolar_line = epipolar_line / norm
 
 		color = tuple([np.random.randint(0, 255) for _ in xrange(3)])
-		cv2.line(image1, (int(left_epipole[0]), int(left_epipole[1])), (int(pixel[0]), int(pixel[1])), color)
+		cv2.line(image1, (int(np.real(left_epipole[0])), np.real(int(left_epipole[1]))), (int(pixel[0]), int(pixel[1])), color)
 
-		cv2.imshow('image', image1)
-		cv2.waitKey(0)
+		plotLine(image1, epipolar_line[0], epipolar_line[1], epipolar_line[2])
 
-
+		# plot points
+		plt.plot(int(pixel[0]), int(pixel[1]), 'r+')
+		plt.show()
