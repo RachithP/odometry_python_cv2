@@ -13,6 +13,7 @@ University of Maryland, College Park
 
 import glob, argparse
 import numpy as np
+import copy
 import cv2
 import extractPose
 import preProcessing as dataPrep
@@ -95,6 +96,16 @@ def vizCameraPose(R, T):
 	plt.title('Camera movement')
 	plt.show()
 
+def combineRT(r,t,prevRT):
+	temp = np.hstack((r,t.reshape(3,1)))
+	RT = np.vstack((temp,np.array([0,0,0,1])))
+	RT = np.matmul(prevRT,RT)
+	prevRT = RT.copy()
+	newR = np.array(RT[0:3,0:3])
+	newT = np.array(RT[0:3,3])
+	return newR,newT,prevRT
+
+
 
 def main():
 	# Parse input arguments
@@ -119,19 +130,20 @@ def main():
 
 	# extract images from undistort
 	new_path = './undistort'
-	bgrImages = extractImages(new_path, 100)
+	bgrImages = extractImages(new_path, 20)
 
 	# extract calibration matrix
 	K = dataPrep.extractCalibrationMatrix(path_to_model='./model')
 
 	T = []
 	R = []
+	prevRT = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]])
 	for imageIndex in range(len(bgrImages) - 1):
 		pixelsImg1, pixelsImg2 = extractMatchFeatures(bgrImages[imageIndex], bgrImages[imageIndex + 1])
 		# vizMatches(bgrImages[imageIndex],bgrImages[imageIndex + 1],pixelsImg1,pixelsImg2)
 
 		F, inlierImg1Pixels, inlierImg2Pixels, _, _ = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
-		# vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels)
+		vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels)
 
 		# this is to perform triangulation using LS method
 		# world_coordinates = triangulation.linearTriangulationLS(K, inlierImg1Pixels, inlierImg2Pixels)
@@ -141,13 +153,15 @@ def main():
 
 		t, r = extractPose.extractPose(F, K, world_coordinates)
 
-		T.append(t)
-		R.append(r)
-
-	cv2.destroyAllWindows()
+		# Combining RT and mulitplying with the previous RT
+		newR,newT,prevRT = combineRT(r,t,prevRT)
+		T.append(newT)
+		R.append(newR)
+		vizCameraPose(R, T)
+		
+	# cv2.destroyAllWindows()
 
 	# visualize the camera pose
-	vizCameraPose(R, T)
 
 
 if __name__ == "__main__":
