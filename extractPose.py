@@ -51,34 +51,54 @@ def extractPose(F, K, world_coordinates):
 	u, s, vh = svd(E)
 	W = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
 
+	C = []
+	R = []
+
 	#  first possibility
-	c1 = u[:, 2]
+	C1 = u[:, 2]
 	R1 = u.dot(W).dot(vh)
 	if det(R1) == -1:
-		c1 = -c1
+		C1 = -C1
 		R1 = -R1
+	C.append(C1)
+	R.append(R1)
 
 	# second possiblity
-	c2 = -u[:, 2]
+	C2 = -u[:, 2]
 	R2 = u.dot(W).dot(vh)
 	if det(R2) == -1:
-		c2 = -c2
+		C2 = -C2
 		R2 = -R2
+	C.append(C2)
+	R.append(R2)
 
 	# third possiblity
-	c3 = u[:, 2]
+	C3 = u[:, 2]
 	R3 = u.dot(W.T).dot(vh)
 	if det(R3) == -1:
-		c3 = -c3
+		C3 = -C3
 		R3 = -R3
+	C.append(C3)
+	R.append(R3)
 
 	# fourth possiblity
-	c4 = -u[:, 2]
+	C4 = -u[:, 2]
 	R4 = u.dot(W.T).dot(vh)
 	if det(R4) == -1:
-		c4 = -c4
+		C4 = -C4
 		R4 = -R4
 
-	return c1, R1, c2, R2, c3, R3, c4, R4
+	C.append(C4)
+	R.append(R4)
+	counts = []
 
+	# check chirality condition
+	for ind in range(4):
+		cnt = 0
+		for point in world_coordinates:
+			cnt += checkChirality(C[ind], R[ind], point)
+		counts.append(cnt)
 
+	ind = np.argmax(counts)
+
+	return C[ind], R[ind]

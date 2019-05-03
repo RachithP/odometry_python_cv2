@@ -19,11 +19,12 @@ import preProcessing as dataPrep
 from ransac import RANSAC
 from matchedFeaturesCoordinates import extractMatchFeatures
 import triangulation
-
+from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D as axes3D
 
 def vizMatches(image1, image2, pixelsImg1, pixelsImg2):
 	'''
-	Visualize the feature matched between pair of images
+	Visualize the feature match between pair of images
 	:param image1:
 	:param image2:
 	:param pixelsImg1:
@@ -41,7 +42,6 @@ def vizMatches(image1, image2, pixelsImg1, pixelsImg2):
 
 	for ind in range(len(pixelsImg1)):
 		# draw the keypoints
-		# print m.queryIdx, m.trainIdx, m.distance
 		color = tuple([np.random.randint(0, 255) for _ in xrange(3)])
 		cv2.line(view, (int(pixelsImg1[ind][0]), int(pixelsImg1[ind][1])),
 				 (int(pixelsImg2[ind][0] + w1), int(pixelsImg2[ind][1])), color)
@@ -63,7 +63,7 @@ def extractImages(path, number_of_images):
 	# Uncomment this to run on all the images
 	# for k in range(30,len(filesnumber)):
 	# Removing first 30 images because it is too bright
-	for k in range(30, number_of_images + 30):
+	for k in range(30, number_of_images + 200):
 		filenames.append(path + "/frame" + str(k) + ".png")
 
 	images = []
@@ -76,15 +76,35 @@ def extractImages(path, number_of_images):
 	return images
 
 
+def vizCameraPose(R, T):
+	'''
+	Function to visualize camera movement
+	:param R:
+	:param T:
+	:return:
+	'''
+
+	T = np.array(T)
+
+	fig = plt.figure()
+	axis = fig.add_subplot(1, 1, 1, projection="3d")
+	axis.scatter(T[:, 0].flatten(), T[:, 1].flatten(), T[:, 2].flatten(), marker=".")
+	axis.set_xlabel('x')
+	axis.set_ylabel('y')
+	axis.set_zlabel('z')
+	plt.title('Camera movement')
+	plt.show()
+
+
 def main():
 	# Parse input arguments
 	Parser = argparse.ArgumentParser()
 	Parser.add_argument('--Path', default="../Oxford_dataset/stereo/centre",
 						help='Path to dataset, Default:../Oxford_dataset/stereo/centre')
-	Parser.add_argument('--ransacEpsilonThreshold', default=0.3,
-						help='Threshold used for deciding inlier during RANSAC, Default:0.9')
+	Parser.add_argument('--ransacEpsilonThreshold', default=0.15,
+						help='Threshold used for deciding inlier during RANSAC, Default:0.15')
 	Parser.add_argument('--inlierRatioThreshold', default=0.8,
-						help='Threshold to consider a fundamental matrix as valid, Default:0.9')
+						help='Threshold to consider a fundamental matrix as valid, Default:0.8')
 
 	Args = Parser.parse_args()
 	path = Args.Path
@@ -104,24 +124,30 @@ def main():
 	# extract calibration matrix
 	K = dataPrep.extractCalibrationMatrix(path_to_model='./model')
 
+	T = []
+	R = []
 	for imageIndex in range(len(bgrImages) - 1):
 		pixelsImg1, pixelsImg2 = extractMatchFeatures(bgrImages[imageIndex], bgrImages[imageIndex + 1])
 		# vizMatches(bgrImages[imageIndex],bgrImages[imageIndex + 1],pixelsImg1,pixelsImg2)
 
-		F, inlierImg1Pixels, inlierImg2Pixels, best_img1_pixel, best_img2_pixel = RANSAC(pixelsImg1, pixelsImg2,
-																						 epsilonThresh,
-																						 inlierRatioThresh)
-		vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels)
+		F, inlierImg1Pixels, inlierImg2Pixels, _, _ = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
+		# vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels)
 
 		# this is to perform triangulation using LS method
-		world_coordinates = triangulation.linearTriangulationLS(K, inlierImg1Pixels, inlierImg2Pixels)
+		# world_coordinates = triangulation.linearTriangulationLS(K, inlierImg1Pixels, inlierImg2Pixels)
 
 		# this is to perform triangulation using Eigen method
-		# world_coordinates = triangulation.linearTriangulationEigen(K, inlierImg1Pixels, inlierImg2Pixels)
+		world_coordinates = triangulation.linearTriangulationEigen(K, inlierImg1Pixels, inlierImg2Pixels)
 
-		t1, r1, t2, r2, t3, r3, t4, r4 = extractPose.extractPose(F, K, world_coordinates)
+		t, r = extractPose.extractPose(F, K, world_coordinates)
+
+		T.append(t)
+		R.append(r)
 
 	cv2.destroyAllWindows()
+
+	# visualize the camera pose
+	vizCameraPose(R, T)
 
 
 if __name__ == "__main__":
