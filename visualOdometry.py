@@ -55,20 +55,20 @@ def extractImages(path, number_of_images):
 	:return:
 	'''
 	# Read and store all images in the input folder
-	filenames = sorted(glob.glob(path + "/frame*.png"))
-
+	filesnumber = sorted(glob.glob(path + "/frame*.png"))
+	filenames = []
+	# Uncomment his to run on all the images
+	# for k in range(30,len(filesnumber)):
 	# Removing first 30 images because it is too bright
-	# del filenames[:30]
+	for k in range(30,number_of_images+30):
+		filenames.append(path + "/frame"+str(k)+".png")
+
 
 	images = []
 	counter = 0
 	for filename in filenames:
 		im_read = cv2.imread(filename, -1)
 		images.append(im_read)
-		counter += 1
-		if number_of_images != None:
-			if counter > number_of_images:
-				break
 
 	print('Done extracting images....')
 
