@@ -139,7 +139,8 @@ def main():
 
 	T = []
 	R = []
-	prevRT = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]])
+	prevRT = np.diagflat([1, 1, 1, 1])
+
 	for imageIndex in range(len(bgrImages) - 1):
 		pixelsImg1, pixelsImg2 = extractMatchFeatures(bgrImages[imageIndex], bgrImages[imageIndex + 1])
 		# vizMatches(bgrImages[imageIndex],bgrImages[imageIndex + 1],pixelsImg1,pixelsImg2)
@@ -156,8 +157,8 @@ def main():
 
 		t, r = extractPose.extractPose(F, K, world_coordinates)
 
-		# Combining RT and mulitplying with the previous RT
-		newR,newT,prevRT = combineRT(r,t,prevRT)
+		# Combining RT and multiplying with the previous RT
+		newR, newT, prevRT = combineRT(r, t, prevRT)
 		T.append(newT)
 		R.append(newR)
 		vizCameraPose(R, T)
