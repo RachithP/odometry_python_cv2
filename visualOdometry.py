@@ -107,7 +107,12 @@ def combineRT(r,t,prevRT):
 	newT = np.array(RT[0:3,3])
 	return newR,newT,prevRT
 
-
+def plotLine(image,a,b,c):
+	plt.imshow(image)
+	x = np.linspace(0,image.shape[1],image.shape[1])
+	y = -((a*x)+c)/b
+	plt.plot(x,y, linewidth=1.0)
+	plt.show()
 
 def main():
 	# Parse input arguments
@@ -146,7 +151,7 @@ def main():
 		# vizMatches(bgrImages[imageIndex],bgrImages[imageIndex + 1],pixelsImg1,pixelsImg2)
 
 		F, inlierImg1Pixels, inlierImg2Pixels, _, _ = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
-		vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels)
+		# vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels)
 
 		checkF.isFValid(F, inlierImg1Pixels, inlierImg2Pixels, bgrImages[imageIndex], bgrImages[imageIndex + 1])
 		# this is to perform triangulation using LS method
@@ -159,9 +164,11 @@ def main():
 
 		# Combining RT and multiplying with the previous RT
 		newR, newT, prevRT = combineRT(r, t, prevRT)
+
+		# plotLine(image,a,b,c)
+		
 		T.append(newT)
 		R.append(newR)
-		vizCameraPose(R, T)
 		
 	# cv2.destroyAllWindows()
 
