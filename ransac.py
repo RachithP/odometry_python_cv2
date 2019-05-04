@@ -95,6 +95,7 @@ def RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh):
 	best_img2_pixel = (0, 0)
 	min_epsilon = 10  # used to obtain pixel giving least error
 
+	count = 0
 	while 1:
 
 		# 8 random pixel coordinate indices
@@ -123,17 +124,17 @@ def RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh):
 			epsilon = img2Pixels.T.dot(randomF).dot(img1Pixels)
 			if abs(epsilon) < epsilonThresh:
 				inliersInds.append(ind)
-
 				# store the pixel coordinates that gave least error - Used for linear triangulation
 				if abs(epsilon) < min_epsilon:
 					min_epsilon = abs(epsilon)
 					best_img1_pixel = img1Pixels[:2]
 					best_img2_pixel = img2Pixels[:2]
-
+		count += 1
 		inlierPercentage = float(len(inliersInds)) / len(pixelsImg1)
 		if inlierPercentage > inlierRatioThresh:
 			print('Yaay!!, Found inlier ratio to be ', inlierPercentage)
 			break
+		# print(count)
 
 	inlierImg1Pixels = []
 	inlierImg2Pixels = []
@@ -152,4 +153,4 @@ def RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh):
 	# print np.linalg.matrix_rank(F)
 	# 	print F
 
-	return F, inlierImg1Pixels, inlierImg2Pixels, best_img1_pixel, best_img2_pixel
+	return F / np.linalg.norm(F), inlierImg1Pixels, inlierImg2Pixels, best_img1_pixel, best_img2_pixel

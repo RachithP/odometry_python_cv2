@@ -22,6 +22,8 @@ from matchedFeaturesCoordinates import extractMatchFeatures
 import triangulation
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D as axes3D
+import checkF
+from chiralityCheck import checkChirality
 
 def vizMatches(image1, image2, pixelsImg1, pixelsImg2):
 	'''
@@ -87,7 +89,7 @@ def vizCameraPose(R, T):
 
 	T = np.array(T)
 
-	fig = plt.figure()
+	fig = plt.figure(1)
 	axis = fig.add_subplot(1, 1, 1, projection="3d")
 	axis.scatter(T[:, 0].flatten(), T[:, 1].flatten(), T[:, 2].flatten(), marker=".")
 	axis.set_xlabel('x')
@@ -96,21 +98,24 @@ def vizCameraPose(R, T):
 	plt.title('Camera movement')
 	plt.show()
 
-def combineRT(r,t,prevRT):
-	temp = np.hstack((r,t.reshape(3,1)))
-	RT = np.vstack((temp,np.array([0,0,0,1])))
-	RT = np.matmul(prevRT,RT)
-	prevRT = RT.copy()
-	newR = np.array(RT[0:3,0:3])
-	newT = np.array(RT[0:3,3])
-	return newR,newT,prevRT
 
-def plotLine(image,a,b,c):
+def combineRT(r, t, prevRT):
+	temp = np.hstack((r, t.reshape(3, 1)))
+	RT = np.vstack((temp, np.array([0, 0, 0, 1])))
+	RT = np.matmul(prevRT, RT)
+	prevRT = RT.copy()
+	newR = np.array(RT[0:3, 0:3])
+	newT = np.array(RT[0:3, 3])
+	return newR, newT, prevRT
+
+
+def plotLine(image, a, b, c):
 	plt.imshow(image)
-	x = np.linspace(0,image.shape[1],image.shape[1])
-	y = -((a*x)+c)/b
-	plt.plot(x,y, linewidth=1.0)
+	x = np.linspace(0, image.shape[1], image.shape[1])
+	y = -((a * x) + c) / b
+	plt.plot(x, y, linewidth=1.0)
 	plt.show()
+
 
 def main():
 	# Parse input arguments
@@ -142,40 +147,46 @@ def main():
 
 	T = []
 	R = []
-	prevRT = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]])
+	prevRT = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
 	for imageIndex in range(len(bgrImages) - 1):
 		pixelsImg1, pixelsImg2 = extractMatchFeatures(bgrImages[imageIndex], bgrImages[imageIndex + 1])
-		# vizMatches(bgrImages[imageIndex],bgrImages[imageIndex + 1],pixelsImg1,pixelsImg2)
+
 		inlierImg1Pixels = pixelsImg1
 		inlierImg2Pixels = pixelsImg2
 		# F, inlierImg1Pixels, inlierImg2Pixels, _, _ = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
-		
-		F_cv2 = cv2.findFundamentalMat(np.array(inlierImg1Pixels), np.array(inlierImg2Pixels), method=cv2.FM_8POINT)
+
+		F_cv2 = cv2.findFundamentalMat(np.array(inlierImg1Pixels), np.array(inlierImg2Pixels), method=cv2.FM_RANSAC)
 		# print F
 
 		F = F_cv2[0]
-		print F
+		# print F
 		# vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], pixelsImg1, pixelsImg2)
+
+		checkF.isFValid(F, inlierImg1Pixels, inlierImg2Pixels, bgrImages[imageIndex], bgrImages[imageIndex + 1], imageIndex)
+
+		# get all poses (4) possible
+		Cset, Rset = extractPose.extractPose(F, K)
 
 		# this is to perform triangulation using LS method
 		# world_coordinates = triangulation.linearTriangulationLS(K, inlierImg1Pixels, inlierImg2Pixels)
 
 		# this is to perform triangulation using Eigen method
-		world_coordinates = triangulation.linearTriangulationEigen(K, inlierImg1Pixels, inlierImg2Pixels)
+		Xset = triangulation.linearTriangulationEigen(K, Cset, Rset, inlierImg1Pixels, inlierImg2Pixels)
 
-		t, r = extractPose.extractPose(F, K, world_coordinates)
+		# check chirality and obtain the true pose
+		t, r = checkChirality(Cset, Rset, Xset)
 
-		# Combining RT and mulitplying with the previous RT
-		newR,newT,prevRT = combineRT(r,t,prevRT)
-		
-		# plotLine(image,a,b,c)
-		
+		# Combining RT and multiplying with the previous RT
+		newR, newT, prevRT = combineRT(r, t, prevRT)
+
 		T.append(newT)
 		R.append(newR)
-		# vizCameraPose(R, T)
-	# cv2.destroyAllWindows()
 
-	# visualize the camera pose
+	# visualize
+	vizCameraPose(R, T)
+
+cv2.destroyAllWindows()
+# visualize the camera pose
 
 
 if __name__ == "__main__":
