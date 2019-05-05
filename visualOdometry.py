@@ -24,6 +24,8 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D as axes3D
 import checkF
 from chiralityCheck import checkChirality
+import pnp
+
 
 def vizMatches(image1, image2, pixelsImg1, pixelsImg2):
 	'''
@@ -121,10 +123,10 @@ def main():
 	Parser = argparse.ArgumentParser()
 	Parser.add_argument('--Path', default="../Oxford_dataset/stereo/centre",
 						help='Path to dataset, Default:../Oxford_dataset/stereo/centre')
-	Parser.add_argument('--ransacEpsilonThreshold', default=1e-1,
-						help='Threshold used for deciding inlier during RANSAC, Default:0.15')
-	Parser.add_argument('--inlierRatioThreshold', default=0.5,
-						help='Threshold to consider a fundamental matrix as valid, Default:0.8')
+	Parser.add_argument('--ransacEpsilonThreshold', default=1e-2,
+						help='Threshold used for deciding inlier during RANSAC, Default:0.01')
+	Parser.add_argument('--inlierRatioThreshold', default=0.85,
+						help='Threshold to consider a fundamental matrix as valid, Default:0.85')
 
 	Args = Parser.parse_args()
 	path = Args.Path
@@ -149,33 +151,55 @@ def main():
 	prevRT = np.diagflat([1, 1, 1, 1])
 
 	for imageIndex in range(len(bgrImages) - 1):
+
+		# extract images from the input array
 		pixelsImg1, pixelsImg2 = extractMatchFeatures(bgrImages[imageIndex], bgrImages[imageIndex + 1])
-		# vizMatches(bgrImages[imageIndex],bgrImages[imageIndex + 1],pixelsImg1,pixelsImg2)
+		# vizMatches(bgrImages[imageIndex],bgrImages[imageIndex + 1],pixelsImg1,pixelsImg2) # visualize the feature matches before RANSAC
 
 		F, inlierImg1Pixels, inlierImg2Pixels, _, _ = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
-		# vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels)
+		# vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels) # visualize after RANSAC
 
 		# check if obtained fundamental matrix is valid or not
 		checkF.isFValid(F, inlierImg1Pixels, inlierImg2Pixels, bgrImages[imageIndex], bgrImages[imageIndex + 1],
 						imageIndex)
 
-		# get all poses (4) possible
-		Cset, Rset = extractPose.extractPose(F, K)
+		# do this only once - first time
+		if imageIndex == 0:
+			# get all poses (4) possible
+			Cset, Rset = extractPose.extractPose(F, K)
 
-		# this is to perform triangulation using LS method
-		# world_coordinates = triangulation.linearTriangulationLS(K, inlierImg1Pixels, inlierImg2Pixels)
+			# this is to perform triangulation using LS method
+			# Xset = triangulation.linearTriangulationLS(K, Cset, Rset, inlierImg1Pixels, inlierImg2Pixels)
 
-		# this is to perform triangulation using Eigen method
-		Xset = triangulation.linearTriangulationEigen(K, Cset, Rset, inlierImg1Pixels, inlierImg2Pixels)
+			# this is to perform triangulation using Eigen method
+			Xset = triangulation.linearTriangulationEigen(K, np.zeros((3, 1)), np.diag([1, 1, 1]), Cset, Rset,
+														  inlierImg1Pixels, inlierImg2Pixels)
 
-		# check chirality and obtain the true pose
-		t, r = checkChirality(Cset, Rset, Xset)
+			# check chirality and obtain the true pose
+			c, r, X = checkChirality(Cset, Rset, Xset)
+			T.append(c)
+			R.append(r)
+
+		# perform non-linear triangulation to obtain optimized set of world coordinates
+			c_old = c
+			r_old = r
+		else:
+			# perform linear pnp to estimate new R,T - resection problem
+			c_new, r_new = pnp.linear(inlierImg1Pixels, X, K)
+
+			# project points seen in 3rd image into world coordinates to use for next iteration
+			X_new = triangulation.linearTriangulationEigen(K, np.zeros((3, 1)), np.diag([1, 1, 1]), c_new, r_new, inlierImg1Pixels, inlierImg2Pixels)
+
+			X = X_new
+
+			c_old = c_new
+			r_old = r_new
+		# refine the above value using non-linear triangulation
 
 		# Combining RT and multiplying with the previous RT
-		newR, newT, prevRT = combineRT(r, t, prevRT)
-
-		T.append(newT)
-		R.append(newR)
+		# newR, newT, prevRT = combineRT(r, t, prevRT)
+			T.append(c_new)
+			R.append(R)
 
 	# visualize
 	vizCameraPose(R, T)
