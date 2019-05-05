@@ -26,4 +26,6 @@ def checkChirality(Cset, Rset, Xset):
 
 	ind = np.argmax(counts)
 
-	return Cset[ind], Rset[ind]
+	print('Chirality count obtained is ', counts)
+
+	return np.array(Cset[ind]).reshape(3, 1), Rset[ind], Xset[ind]

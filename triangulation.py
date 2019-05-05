@@ -14,28 +14,34 @@ University of Maryland, College Park
 import numpy as np
 
 
-def linearTriangulationEigen(K, Cset, Rset, img1_pixels, img2_pixels):
+def linearTriangulationEigen(K, C0, R0, Cset, Rset, img1_pixels, img2_pixels):
 	'''
-	This is linear-LeastSquare method
+	This is linear-Eigen based method
 	Perform linear triangulation from pixel coordinates (homogeneous) to get world coordinates
-	:param K: calibration matrix
-	:param img1px: pixel location from image 1
-	:param img2px: pixel location from image 2
+	:param K:
+	:param C0:
+	:param R0:
+	:param Cset:
+	:param Rset:
 	:param img1_pixels:
 	:param img2_pixels:
 	:return:
 	'''
-
 	K = np.array(K)
 	# obtain projective matrix for first image with identity rotation and 0 translation
-	P1 = K.dot(np.hstack((np.diagflat([1, 1, 1]), np.zeros((3, 1)))))
+
+	R0 = np.squeeze(R0)
+	C0 = C0.reshape(3, 1)
+	P1 = K.dot(np.hstack((R0, C0)))
 	X = []
 	Xset = []
 
 	for ind in range(len(Rset)):
 
+		T = -Rset[ind].dot(Cset[ind]).reshape(3, 1)
+
 		# obtain projective matrix for second image with the rotation and translation given by camera shift
-		P2 = K.dot(np.hstack((Rset[ind], Cset[ind].reshape(3, 1))))
+		P2 = K.dot(np.hstack((Rset[ind], T)))
 
 		# re-project every matched point
 		# define the matrix using intrinsic parameters and each image pixel coordinates
@@ -50,16 +56,22 @@ def linearTriangulationEigen(K, Cset, Rset, img1_pixels, img2_pixels):
 			# compute AT.A
 			M = A.T.dot(A)
 
+			# eigen_values, eigen_vectors = np.linalg.eig(M)
+			#
+			# idx = eigen_values.argsort()[::-1]
+			# # eigen_values = eigen_values[idx]
+			# eigen_vectors = eigen_vectors[:, idx]
+			#
+			# # normalize the vector P - last eigenvector
+			# P = eigen_vectors[:, -1]
+			# P = P / P[-1]
+
 			# perform svd to obtain world coordinate - last eigen vector
-			eigen_values, eigen_vectors = np.linalg.eig(M)
+			u, s, vh = np.linalg.svd(M)
+			P = vh.T[:, -1]
 
-			idx = eigen_values.argsort()[::-1]
-			# eigen_values = eigen_values[idx]
-			eigen_vectors = eigen_vectors[:, idx]
-
-			# normalize the vector P - last eigenvector
-			P = eigen_vectors[:, -1]
-			P = P / P[-1]
+			# normalize the vector X
+			P = P / P[3]
 
 			X.append(P[:3])
 
@@ -68,27 +80,30 @@ def linearTriangulationEigen(K, Cset, Rset, img1_pixels, img2_pixels):
 	return np.array(Xset)
 
 
-def linearTriangulationLS(K, Cset, Rset, img1_pixels, img2_pixels):
+def linearTriangulationLS(K, C0, R0, Cset, Rset, img1_pixels, img2_pixels):
 	'''
+	This is linear least-square based optimization
 	Perform linear triangulation from pixel coordinates (homogeneous) to get world coordinates
-	:param K: calibration matrix
-	:param img1px: pixel location from image 1
-	:param img2px: pixel location from image 2
+	:param K:
+	:param C0:
+	:param R0:
+	:param Cset:
+	:param Rset:
 	:param img1_pixels:
 	:param img2_pixels:
 	:return:
 	'''
-
 	K = np.array(K)
 	# obtain projective matrix for first image with identity rotation and 0 translation
-	P1 = K.dot(np.hstack((np.diagflat([1, 1, 1]), np.zeros((3, 1)))))
+	P1 = K.dot(np.hstack((R0, C0)))
 	X = []
 	Xset = []
 
 	for ind in range(len(Rset)):
 
+		T = -Rset[ind].dot(Cset[ind]).reshape(3, 1)
 		# obtain projective matrix for second image with the rotation and translation given by camera shift
-		P2 = K.dot(np.hstack((Rset[ind], Cset[ind].reshape(3, 1))))
+		P2 = K.dot(np.hstack((Rset[ind], T)))
 
 		# re-project every matched point
 		# define the matrix using intrinsic parameters and each image pixel coordinates

@@ -26,17 +26,17 @@ def extractPose(F, K):
 	K = np.array(K)
 	E = K.T.dot(F).dot(K)
 	u, s, vh = svd(E)
-	if s[-1] != 0:
-		s[-1] = 0
 
-	S = np.zeros((s.shape[0], u.shape[0]), dtype=u.dtype)
-	np.fill_diagonal(S, s)
+	# impose rank 2 and equal eigen value condition
+	s = [1, 1, 0]
+	S = np.diag(s)
 
 	# Re-compute E
 	E = u.dot(S).dot(vh)
 
 	# svd of Essential matrix to compute Rotation and translation matrices
 	u, s, vh = svd(E)
+
 	W = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
 
 	C = []
