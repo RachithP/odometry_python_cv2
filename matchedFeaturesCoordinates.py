@@ -54,6 +54,7 @@ def extractMatchFeatures(image1, image2):
 	'''
 	# Initiate ORB detector
 	orb = cv2.ORB_create()
+	# orb = cv2.SIFT()
 
 	# find the keypoints and descriptors with ORB
 	kp1, des1 = orb.detectAndCompute(image1, None)
@@ -61,15 +62,25 @@ def extractMatchFeatures(image1, image2):
 
 	# create BFMatcher object
 	bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+	# bf = cv2.BFMatcher()
 
 	# Match descriptors.
 	matches = bf.match(des1, des2)
+	# matches = bf.knnMatch(des1, des2, k=2)
 
 	# Sort them in the order of their distance.
 	matches = sorted(matches, key=lambda x: x.distance)
+	# Apply ratio test
+	# good = []
+	# for match in matches:
+	# 	m = match[0]
+	# 	n = match[1]
+	# 	if m.distance < 0.75 * n.distance:
+	# 		good.append(match)
 
 	#Taking only the best 50
 	matches = matches[:40]
+	# matches = good
 
 	pixelsImg1, pixelsImg2 = getPixelCoordinates(kp1, kp2, matches)
 

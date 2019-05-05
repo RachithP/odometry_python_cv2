@@ -63,8 +63,7 @@ def checkRank2(uncheckedF):
 	# perform SVD to obtain the singular values. Note: s is an array of singular values arranged in descreasing order
 	u, s, vh = np.linalg.svd(uncheckedF)
 	# check if the last singular value is 0. If not, enforce zero
-	if s[-1] != 0:
-		s[-1] = 0
+	s[-1] = 0
 
 	# Convert singular value array to diagonal form
 	S = np.zeros((s.shape[0], u.shape[0]), dtype=u.dtype)
@@ -76,7 +75,40 @@ def checkRank2(uncheckedF):
 	return F
 
 
-def RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh):
+def normalizePoints(points):
+	'''
+	Scale and translate image points so that the centroid of the points are at the origin and average distance to the origin
+	is equal to sqrt(2)
+	:param points: array of inlier points
+	:return: array of same input normalized
+	'''
+
+	points = np.asarray(points)
+	x = points[:, 0]
+	y = points[:, 1]
+
+	# calculate mean along each axis
+	centre = points.mean(axis=0)
+	# centre around this mean
+	cx = x - centre[0]
+	cy = y - centre[1]
+
+	dist = np.sqrt(np.power(cx, 2) + np.power(cy, 2))
+	scale = np.sqrt(2) / dist.mean()
+
+	norm = np.array(
+		[[scale, 0, -scale * centre[0]],
+		 [0, scale, -scale * centre[1]],
+		 [0, 0, 1]])
+
+	points = np.hstack((points, np.ones((points.shape[0], 1))))
+
+	norm_points = norm.dot(points.T).T
+
+	return norm_points[:, :2], norm
+
+
+def RANSAC(pixels_img1, pixels_img2, epsilonThresh, inlierRatioThresh):
 	'''
 	Apply RANSAC for robust estimation of fundamental matrix
 	:param pixelsImg1:
@@ -85,15 +117,16 @@ def RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh):
 	:param inlierRatioThresh:
 	:return:
 	'''
-	# seed random values - This is done to get same random values everytime we run this FILE!
-	random.seed(1)
 
-	counter = 1
-	max_value = len(pixelsImg1) - 1
+	# pre-process image coordinates
+	pixelsImg1, norm1 = normalizePoints(pixels_img1)
+	pixelsImg2, norm2 = normalizePoints(pixels_img2)
 
+	max_value = len(pixels_img1) - 1
 	best_img1_pixel = (0, 0)  # (x,y) format
 	best_img2_pixel = (0, 0)
 	min_epsilon = 10  # used to obtain pixel giving least error
+	count = 0
 
 	while 1:
 
@@ -108,28 +141,30 @@ def RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh):
 			randImg1Pixels.append(pixelsImg1[k])
 			randImg2Pixels.append(pixelsImg2[k])
 
+		# get matrix from random points selected
 		randomF = computeFundamentalMatrix(randImg1Pixels, randImg2Pixels)
 
-		# print 'rank before'
-		# print np.linalg.matrix_rank(randomF)
+		# impose rank 2 constraint
 		randomF = checkRank2(randomF)
-		# print 'rank after'
-		# print np.linalg.matrix_rank(randomF)
 
+		# iterate through all points to find the inliers for the above computed matrix
 		inliersInds = []
 		for ind in range(len(pixelsImg1)):
 			img1Pixels = np.array([pixelsImg1[ind][0], pixelsImg1[ind][1], 1])
 			img2Pixels = np.array([pixelsImg2[ind][0], pixelsImg2[ind][1], 1])
+
+			# check the error condition
 			epsilon = img2Pixels.T.dot(randomF).dot(img1Pixels)
 			if abs(epsilon) < epsilonThresh:
 				inliersInds.append(ind)
-
 				# store the pixel coordinates that gave least error - Used for linear triangulation
 				if abs(epsilon) < min_epsilon:
 					min_epsilon = abs(epsilon)
 					best_img1_pixel = img1Pixels[:2]
 					best_img2_pixel = img2Pixels[:2]
+		count += 1
 
+		# calculate the inlier percentage and break if required number is satisfied
 		inlierPercentage = float(len(inliersInds)) / len(pixelsImg1)
 		if inlierPercentage > inlierRatioThresh:
 			print('Yaay!!, Found inlier ratio to be ', inlierPercentage)
@@ -137,19 +172,21 @@ def RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh):
 
 	inlierImg1Pixels = []
 	inlierImg2Pixels = []
+	return_inlierpoints_img1 = []
+	return_inlierpoints_img2 = []
 	for k in inliersInds:
 		inlierImg1Pixels.append(pixelsImg1[k])
 		inlierImg2Pixels.append(pixelsImg2[k])
+		return_inlierpoints_img1.append(pixels_img1[k])
+		return_inlierpoints_img2.append(pixels_img2[k])
 
 	# re-compute Fundamental matrix using all these proper matches
 	inliersF = computeFundamentalMatrix(inlierImg1Pixels, inlierImg2Pixels)
 
-	# print inliersF
-	# print 'before'
-	# print np.linalg.matrix_rank(inliersF)
+	# impose rank 2 constraint
 	F = checkRank2(inliersF)
 
-	# print np.linalg.matrix_rank(F)
-	# 	print F
+	# reverse the effect of normalized coordinates
+	F = norm2.T.dot(F).dot(norm1)
 
-	return F, inlierImg1Pixels, inlierImg2Pixels, best_img1_pixel, best_img2_pixel
+	return F / F[2, 2], return_inlierpoints_img1, return_inlierpoints_img2, best_img1_pixel, best_img2_pixel

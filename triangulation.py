@@ -33,81 +33,116 @@ def nonLinearTriangulation(uArr,vArr,PArr,initGuess):
 
 	return res_1.x
 
-def linearTriangulationEigen(K, img1_pixels, img2_pixels):
+def linearTriangulationEigen(K, C0, R0, Cset, Rset, img1_pixels, img2_pixels):
 	'''
-	This is linear-LeastSquare method
+	This is linear-Eigen based method
 	Perform linear triangulation from pixel coordinates (homogeneous) to get world coordinates
-	:param K: calibration matrix
-	:param img1px: pixel location from image 1
-	:param img2px: pixel location from image 2
+	:param K:
+	:param C0:
+	:param R0:
+	:param Cset:
+	:param Rset:
 	:param img1_pixels:
 	:param img2_pixels:
 	:return:
 	'''
+	K = np.array(K)
+	# obtain projective matrix for first image with identity rotation and 0 translation
 
-	# append last col to K to convert it into 3x4 matrix from 3x3
-	K = np.hstack([K, np.zeros((3, 1))])
-
-	# re-project every matched point
-	# define the matrix using intrinsic parameters and each image pixel coordinates
-
+	R0 = np.squeeze(R0)
+	C0 = C0.reshape(3, 1)
+	P1 = K.dot(np.hstack((R0, C0)))
 	X = []
-	for i in range(len(img1_pixels)):
-		img1px = img1_pixels[i]
-		img2px = img2_pixels[i]
+	Xset = []
 
-		A = np.squeeze(np.array([[img1px[1] * K[2, :] - K[1, :]], [img1px[0] * K[2, :] - K[1, :]], [img2px[1] * K[2, :] - K[1, :]], [img2px[1] * K[2, :] - K[1, :]]]))
+	for ind in range(len(Rset)):
 
-		# compute AT.A
-		M = A.T.dot(A)
+		T = -Rset[ind].dot(Cset[ind]).reshape(3, 1)
 
-		# perform svd to obtain world coordinate - last eigen vector
-		eigen_values, eigen_vectors = np.linalg.eig(M)
+		# obtain projective matrix for second image with the rotation and translation given by camera shift
+		P2 = K.dot(np.hstack((Rset[ind], T)))
 
-		idx = eigen_values.argsort()[::-1]
-		eigen_values = eigen_values[idx]
-		eigen_vectors = eigen_vectors[:, idx]
+		# re-project every matched point
+		# define the matrix using intrinsic parameters and each image pixel coordinates
 
-		# normalize the vector P - last eigenvector
-		P = eigen_vectors[:, -1]
+		for i in range(len(img1_pixels)):
+			img1px = img1_pixels[i]
+			img2px = img2_pixels[i]
 
-		X.append(P[:3])
+			A = np.squeeze(np.array([[img1px[1] * P1[2, :] - P1[1, :]], [img1px[0] * P1[2, :] - P1[0, :]],
+									 [img2px[1] * P2[2, :] - P2[1, :]], [img2px[1] * P2[2, :] - P2[0, :]]]))
 
-	return X
+			# compute AT.A
+			M = A.T.dot(A)
+
+			# eigen_values, eigen_vectors = np.linalg.eig(M)
+			#
+			# idx = eigen_values.argsort()[::-1]
+			# # eigen_values = eigen_values[idx]
+			# eigen_vectors = eigen_vectors[:, idx]
+			#
+			# # normalize the vector P - last eigenvector
+			# P = eigen_vectors[:, -1]
+			# P = P / P[-1]
+
+			# perform svd to obtain world coordinate - last eigen vector
+			u, s, vh = np.linalg.svd(M)
+			P = vh.T[:, -1]
+
+			# normalize the vector X
+			P = P / P[3]
+
+			X.append(P[:3])
+
+		Xset.append(X)
+
+	return np.array(Xset)
 
 
-def linearTriangulationLS(K, img1_pixels, img2_pixels):
+def linearTriangulationLS(K, C0, R0, Cset, Rset, img1_pixels, img2_pixels):
 	'''
+	This is linear least-square based optimization
 	Perform linear triangulation from pixel coordinates (homogeneous) to get world coordinates
-	:param K: calibration matrix
-	:param img1px: pixel location from image 1
-	:param img2px: pixel location from image 2
+	:param K:
+	:param C0:
+	:param R0:
+	:param Cset:
+	:param Rset:
 	:param img1_pixels:
 	:param img2_pixels:
 	:return:
 	'''
-
-	# append last col to K to convert it into 3x4 matrix from 3x3
-	K = np.hstack([K, np.zeros((3, 1))])
-
-	# re-project every matched point
-	# define the matrix using intrinsic parameters and each image pixel coordinates
-
+	K = np.array(K)
+	# obtain projective matrix for first image with identity rotation and 0 translation
+	P1 = K.dot(np.hstack((R0, C0)))
 	X = []
-	for i in range(len(img1_pixels)):
+	Xset = []
 
-		img1px = img1_pixels[i]
-		img2px = img2_pixels[i]
+	for ind in range(len(Rset)):
 
-		A = np.squeeze(np.array([[img1px[1] * K[2, :] - K[1, :]], [img1px[0] * K[2, :] - K[1, :]], [img2px[1] * K[2, :] - K[1, :]], [img2px[1] * K[2, :] - K[1, :]]]))
+		T = -Rset[ind].dot(Cset[ind]).reshape(3, 1)
+		# obtain projective matrix for second image with the rotation and translation given by camera shift
+		P2 = K.dot(np.hstack((Rset[ind], T)))
 
-		# perform svd to obtain world coordinate of the respective point
-		u, s, vh = np.linalg.svd(A)
-		P = vh.T[:, -1]
+		# re-project every matched point
+		# define the matrix using intrinsic parameters and each image pixel coordinates
 
-		# normalize the vector X
-		P = P / P[3]
+		for i in range(len(img1_pixels)):
+			img1px = img1_pixels[i]
+			img2px = img2_pixels[i]
 
-		X.append(P[:3])
+			A = np.squeeze(np.array([[img1px[1] * P1[2, :] - P1[1, :]], [img1px[0] * P1[2, :] - P1[0, :]],
+									 [img2px[1] * P2[2, :] - P2[1, :]], [img2px[1] * P2[2, :] - P2[0, :]]]))
 
-	return X
+			# perform svd to obtain world coordinate of the respective point
+			u, s, vh = np.linalg.svd(A)
+			P = vh.T[:, -1]
+
+			# normalize the vector X
+			P = P / P[3]
+
+			X.append(P[:3])
+
+		Xset.append(X)
+
+	return np.array(Xset)

@@ -15,19 +15,7 @@ University of Maryland, College Park
 import numpy as np
 from numpy.linalg import svd, det
 
-
-def checkChirality(C, R, X):
-	'''
-	Check chirality condition and return true or false
-	:param C:
-	:param R:
-	:param X:
-	:return: 1/0
-	'''
-	return np.dot(R[2, :], X - C) > 0
-
-
-def extractPose(F, K, world_coordinates):
+def extractPose(F, K):
 	'''
 	This function calculates Essential Matrix from Fundamental Matrix
 	:param F: Fundamental Matrix
@@ -38,17 +26,17 @@ def extractPose(F, K, world_coordinates):
 	K = np.array(K)
 	E = K.T.dot(F).dot(K)
 	u, s, vh = svd(E)
-	if s[-1] != 0:
-		s[-1] = 0
 
-	S = np.zeros((s.shape[0], u.shape[0]), dtype=u.dtype)
-	np.fill_diagonal(S, s)
+	# impose rank 2 and equal eigen value condition
+	s = [1, 1, 0]
+	S = np.diag(s)
 
 	# Re-compute E
 	E = u.dot(S).dot(vh)
 
 	# svd of Essential matrix to compute Rotation and translation matrices
 	u, s, vh = svd(E)
+
 	W = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
 
 	C = []
@@ -87,18 +75,7 @@ def extractPose(F, K, world_coordinates):
 	if det(R4) == -1:
 		C4 = -C4
 		R4 = -R4
-
 	C.append(C4)
 	R.append(R4)
-	counts = []
 
-	# check chirality condition
-	for ind in range(4):
-		cnt = 0
-		for point in world_coordinates:
-			cnt += checkChirality(C[ind], R[ind], point)
-		counts.append(cnt)
-
-	ind = np.argmax(counts)
-
-	return C[ind], R[ind]
+	return np.array(C), np.array(R)
