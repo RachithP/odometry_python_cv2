@@ -52,15 +52,15 @@ def linearTriangulationEigen(K, C0, R0, Cset, Rset, img1_pixels, img2_pixels):
 	R0 = np.squeeze(R0)
 	C0 = C0.reshape(3, 1)
 	P1 = K.dot(np.hstack((R0, C0)))
-	X = []
 	Xset = []
 
 	for ind in range(len(Rset)):
+		X = []
 
 		T = -Rset[ind].dot(Cset[ind]).reshape(3, 1)
-
+		R = Rset[ind].T
 		# obtain projective matrix for second image with the rotation and translation given by camera shift
-		P2 = K.dot(np.hstack((Rset[ind], T)))
+		P2 = K.dot(np.hstack((R, T)))
 
 		# re-project every matched point
 		# define the matrix using intrinsic parameters and each image pixel coordinates
@@ -70,7 +70,7 @@ def linearTriangulationEigen(K, C0, R0, Cset, Rset, img1_pixels, img2_pixels):
 			img2px = img2_pixels[i]
 
 			A = np.squeeze(np.array([[img1px[1] * P1[2, :] - P1[1, :]], [img1px[0] * P1[2, :] - P1[0, :]],
-									 [img2px[1] * P2[2, :] - P2[1, :]], [img2px[1] * P2[2, :] - P2[0, :]]]))
+									 [img2px[1] * P2[2, :] - P2[1, :]], [img2px[0] * P2[2, :] - P2[0, :]]]))
 
 			# compute AT.A
 			M = A.T.dot(A)
@@ -89,11 +89,11 @@ def linearTriangulationEigen(K, C0, R0, Cset, Rset, img1_pixels, img2_pixels):
 			u, s, vh = np.linalg.svd(M)
 			P = vh.T[:, -1]
 
-			# normalize the vector X
-			P = P / P[3]
+			if P[3] !=0:
+				# normalize the vector X
+				P = P / P[3]
 
-			X.append(P[:3])
-
+				X.append(P[:3])
 		Xset.append(X)
 
 	return np.array(Xset)

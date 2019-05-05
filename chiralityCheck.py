@@ -21,10 +21,15 @@ def checkChirality(Cset, Rset, Xset):
 	for ind in range(4):
 		cnt = 0
 		for point in Xset[ind]:
-			cnt += (np.dot(Rset[ind][2, :], point - Cset[ind]) > 0)
+			# print np.matmul(Rset[ind][2, :], point - Cset[ind])
+			# print np.matmul(Rset[ind][2, :], point - Cset[ind]) > 0
+			cnt += (np.matmul(Rset[ind][2, :], (point - Cset[ind])) > 0)
 		counts.append(cnt)
-
+	# 	print '-------------------'
+	# print counts
 	ind = np.argmax(counts)
+
+	print ind
 
 	print('Chirality count obtained is ', counts)
 

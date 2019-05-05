@@ -117,6 +117,16 @@ def combineRT(r, t, prevRT):
 	newT = np.array(RT[0:3, 3])
 	return newR, newT, prevRT
 
+'''
+This returns the indices in the curent frame which were present in the previous frame
+'''
+def findCommon(prevMatchedPixelLocations,currentMatchedPixelLocations):
+
+	both = set(prevMatchedPixelLocations).intersection(currentMatchedPixelLocations)
+	commonIndicesPrevFrame = [prevMatchedPixelLocations.index(x) for x in both]
+	commonIndicesNewFrame = [currentMatchedPixelLocations.index(x) for x in both]
+	return np.array(commonIndicesPrevFrame),np.array(commonIndicesNewFrame)
+
 
 def main():
 	# Parse input arguments
@@ -179,19 +189,38 @@ def main():
 			c, r, X = checkChirality(Cset, Rset, Xset)
 			T.append(c)
 			R.append(r)
+			print 'First camera position and orientation'
+			print c
+			print r
 
-		# perform non-linear triangulation to obtain optimized set of world coordinates
+			# perform non-linear triangulation to obtain optimized set of world coordinates
+			# I dont think we need this
 			c_old = c
 			r_old = r
+
+			# Saving the matched pixel coordinates in the second image frame
+			prevFrameMatchedPixels = inlierImg2Pixels
+			prevFrameMatchedWorldPixels = X
+
 		else:
+			# Finding common values in previous frame matched points and the current matched points
+			commonIndicesPrevFrame,commonIndicesNewFrame = findCommon(prevFrameMatchedPixels,inlierImg1Pixels)
+			XCurr = prevFrameMatchedWorldPixels[commonIndicesPrevFrame]
+			xCurr = np.array(inlierImg2Pixels)[commonIndicesNewFrame]
+
 			# perform linear pnp to estimate new R,T - resection problem
-			c_new, r_new = pnp.linear(inlierImg1Pixels, X, K)
+			c_new, r_new = pnp.linear(xCurr, XCurr, K)
+			quit()
+
+			print 'c_new'
+			print c_new
 
 			# project points seen in 3rd image into world coordinates to use for next iteration
 			X_new = triangulation.linearTriangulationEigen(K, np.zeros((3, 1)), np.diag([1, 1, 1]), c_new, r_new, inlierImg1Pixels, inlierImg2Pixels)
 
 			X = X_new
 
+			# I dont think we need this
 			c_old = c_new
 			r_old = r_new
 		# refine the above value using non-linear triangulation
@@ -199,10 +228,15 @@ def main():
 		# Combining RT and multiplying with the previous RT
 		# newR, newT, prevRT = combineRT(r, t, prevRT)
 			T.append(c_new)
-			R.append(R)
+			R.append(r_new)
+		
+		# # cv2.imshow('prev image',bgrImages[imageIndex])
+		# cv2.imshow('prev image',bgrImages[imageIndex+1])
+		# cv2.waitKey(0)
+		print '--------------------------'
 
 	# visualize
-	vizCameraPose(R, T)
+	# vizCameraPose(R, T)
 
 
 cv2.destroyAllWindows()
