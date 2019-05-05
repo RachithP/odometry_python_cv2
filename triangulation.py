@@ -12,7 +12,26 @@ University of Maryland, College Park
 '''
 
 import numpy as np
+from scipy.optimize import least_squares
 
+def nonLinearTriangulation(uArr,vArr,PArr,initGuess):
+	def homX(x):
+		homx = x/x[2]
+		return homx
+	def functionNonTriag(x):
+		Pt = P.T
+		for j in range(2):
+			Ptj = Pt[j]
+			term1 = (u[j]-(np.matmul(Ptj[0,:],homX(x))/(Ptj[2,:]*x)))**2
+			term2 = (v[j]-(np.matmul(Ptj[1,:],homX(x))/(Ptj[2,:]*x)))**2
+			if j==0:
+				output = term1+term2
+			else:
+				output += term1+term2
+		return output
+	res_1 = least_squares(functionNonTriag, initGuess)
+
+	return res_1.x
 
 def linearTriangulationEigen(K, img1_pixels, img2_pixels):
 	'''
