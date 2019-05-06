@@ -130,6 +130,8 @@ def RANSAC(pixels_img1, pixels_img2, epsilonThresh, inlierRatioThresh):
 
 	while 1:
 
+		count += 1
+
 		# 8 random pixel coordinate indices
 		randomPixelInds = np.random.randint(max_value, size=8)
 
@@ -162,12 +164,12 @@ def RANSAC(pixels_img1, pixels_img2, epsilonThresh, inlierRatioThresh):
 					min_epsilon = abs(epsilon)
 					best_img1_pixel = img1Pixels[:2]
 					best_img2_pixel = img2Pixels[:2]
-		count += 1
 
 		# calculate the inlier percentage and break if required number is satisfied
 		inlierPercentage = float(len(inliersInds)) / len(pixelsImg1)
 		if inlierPercentage > inlierRatioThresh:
 			print('Yaay!!, Found inlier ratio to be ', inlierPercentage)
+			print('Number of iterations RANSAC', count)
 			break
 
 	inlierImg1Pixels = []
@@ -192,4 +194,4 @@ def RANSAC(pixels_img1, pixels_img2, epsilonThresh, inlierRatioThresh):
 	if F[2, 2] == -1:
 		F = -F
 
-	return F / F[2, 2], return_inlierpoints_img1, return_inlierpoints_img2, best_img1_pixel, best_img2_pixel
+	return F, return_inlierpoints_img1, return_inlierpoints_img2, best_img1_pixel, best_img2_pixel

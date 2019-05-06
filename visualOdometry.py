@@ -13,19 +13,16 @@ University of Maryland, College Park
 
 import glob, argparse
 import numpy as np
-import copy
 import cv2
 import extractPose
 import preProcessing as dataPrep
 from ransac import RANSAC
-from matchedFeaturesCoordinates import extractMatchFeatures
-import triangulation
+import matchedFeaturesCoordinates as feature
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D as axes3D
 import checkF
 from chiralityCheck import checkChirality
-import pnp
-import project2dTo3d
+
 
 def vizMatches(image1, image2, pixelsImg1, pixelsImg2):
 	'''
@@ -65,25 +62,27 @@ def extractImages(path, number_of_images):
 	filesnumber = sorted(glob.glob(path + "/frame*.png"))
 	filenames = []
 
-	# Uncomment this to run on all the images
-	# for k in range(30,len(filesnumber)):
-	# Removing first 30 images because it is too bright
-	for k in range(30, number_of_images + 1000):
+	# Removing first 24 images because it is too bright and feature detection will be bad
+	for k in range(24, len(filesnumber)):
 		filenames.append(path + "/frame" + str(k) + ".png")
 
 	images = []
+	bgr_images = []
 	for filename in filenames:
-		im_read = cv2.imread(filename, 0)
+		im_read = cv2.imread(filename, -1)
+		# histogram equalization of the image
+		equ = cv2.equalizeHist(cv2.cvtColor(im_read, cv2.COLOR_BGR2GRAY))
 		# blur the image
-		im_read = cv2.GaussianBlur(im_read, (5, 5), 0)
+		bgr_images.append(im_read)
+		im_read = cv2.GaussianBlur(equ, (3, 3), 1)
 		images.append(im_read)
-
+	cv2.destroyAllWindows()
 	print('Done extracting images....')
 
-	return images
+	return images, bgr_images
 
 
-def vizCameraPose(R, T):
+def vizCameraPose(T, T_inbuilt):
 	'''
 	Function to visualize camera movement
 	:param R:
@@ -91,50 +90,23 @@ def vizCameraPose(R, T):
 	:return:
 	'''
 	T = np.array(T)
+	T_inbuilt = np.array(T_inbuilt)
 
 	fig = plt.figure(1)
-	axis = fig.add_subplot(1, 1, 1, projection="3d")
-	axis.scatter(T[:, 0].flatten(), T[:, 1].flatten(), T[:, 2].flatten(), marker=".")
-	axis.set_xlabel('x')
-	axis.set_ylabel('y')
-	axis.set_zlabel('z')
-	plt.title('Camera movement')
-	axis.set_xlim(-10,500)
-	axis.set_ylim(-10,500)
-	axis.set_zlim(-20,500)
+	# axis = fig.add_subplot(1, 1, 1, projection="3d")
+	# axis.scatter(T[:, 0].flatten(), T[:, 1].flatten(), T[:, 2].flatten(), marker=".")
+	# axis.set_xlabel('x')
+	# axis.set_ylabel('y')
+	# axis.set_zlabel('z')
+	# plt.title('Camera movement')
+	# axis.set_xlim(-400, 400)
+	# axis.set_ylim(-400, 400)
+	# axis.set_zlim(-600, 1000)
+	# plt.plot(T[:, 0].flatten(), T[:, 2].flatten(), 'r.', label="Our implementation")
+	plt.plot(T_inbuilt[:, 0].flatten(), T_inbuilt[:, 2].flatten(), 'b.', label="Inbuilt function implementation")
+	plt.xlim(-20, 50)
+	plt.ylim(-50, 50)
 	plt.show()
-
-
-def combineRT(r, t, prevRT):
-	'''
-	This function calculates the new R, T by multiplying present H (transformation matrix) with transformation matrix
-	of previous frame w.r.t base frame
-	:param r:
-	:param t:
-	:param prevRT:
-	:return:
-	'''
-	temp = np.hstack((r, t.reshape(3, 1)))
-	RT = np.vstack((temp, np.array([0, 0, 0, 1])))
-	RT = np.matmul(prevRT, RT)
-	prevRT = RT.copy()
-	newR = np.array(RT[0:3, 0:3])
-	newT = np.array(RT[0:3, 3])
-	return newR, newT, prevRT
-
-
-def findCommon(prevMatchedPixelLocations, currentMatchedPixelLocations, count):
-	'''
-	This returns the indices of features in the curent frame which were present in the previous frame
-	:param prevMatchedPixelLocations:
-	:param currentMatchedPixelLocations:
-	:return:
-	'''
-	both = set(prevMatchedPixelLocations).intersection(currentMatchedPixelLocations)
-	commonIndicesPrevFrame = [prevMatchedPixelLocations.index(x) for x in both]
-	commonIndicesNewFrame = [currentMatchedPixelLocations.index(x) for x in both]
-
-	return np.array(commonIndicesPrevFrame), np.array(commonIndicesNewFrame)
 
 
 def main():
@@ -142,9 +114,9 @@ def main():
 	Parser = argparse.ArgumentParser()
 	Parser.add_argument('--Path', default="../Oxford_dataset/stereo/centre",
 						help='Path to dataset, Default:../Oxford_dataset/stereo/centre')
-	Parser.add_argument('--ransacEpsilonThreshold', default=1e-2,
+	Parser.add_argument('--ransacEpsilonThreshold', default=0.01,
 						help='Threshold used for deciding inlier during RANSAC, Default:0.01')
-	Parser.add_argument('--inlierRatioThreshold', default=0.85,
+	Parser.add_argument('--inlierRatioThreshold', default=0.75,
 						help='Threshold to consider a fundamental matrix as valid, Default:0.85')
 
 	Args = Parser.parse_args()
@@ -160,102 +132,94 @@ def main():
 
 	# extract images from undistort
 	new_path = './undistort'
-	bgrImages = extractImages(new_path, 20)
+	filesnumber = sorted(glob.glob(new_path + "/frame*.png"))
 
 	# extract calibration matrix
 	K = dataPrep.extractCalibrationMatrix(path_to_model='./model')
 
 	T = []
-	R = []
-	prevRT = np.diagflat([1, 1, 1, 1])
+	T_inbuilt = []
 	alpha = 0
+	R = []
 	H = np.identity(4)
-	for imageIndex in range(len(bgrImages) - 1):
+	H_inbuilt = np.identity(4)
+
+	for imageIndex in range(24, len(filesnumber)-3700):
+		print(imageIndex)
+
+		# bgrImages, vizImages = extractImages(new_path, 20)
+		# ------------Process pair of images -------------------------------------
+		img1 = cv2.imread(new_path + "/frame" + str(imageIndex) + ".png", -1)
+		# histogram equalization of the image
+		equ1 = cv2.equalizeHist(cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY))
+		# blur the image
+		img1_gray = cv2.GaussianBlur(equ1, (3, 3), 1)
+		img2 = cv2.imread(new_path + "/frame" + str(imageIndex + 1) + ".png", -1)
+		# histogram equalization of the image
+		equ2 = cv2.equalizeHist(cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY))
+		# blur the image
+		img2_gray = cv2.GaussianBlur(equ2, (3, 3), 1)
 
 		# extract images from the input array
-		pixelsImg1, pixelsImg2 = extractMatchFeatures(bgrImages[imageIndex], bgrImages[imageIndex + 1])
-		# vizMatches(bgrImages[imageIndex],bgrImages[imageIndex + 1],pixelsImg1,pixelsImg2) # visualize the feature matches before RANSAC
+		# pixelsImg1, pixelsImg2 = feature.extractMatchFeatures(bgrImages[imageIndex], bgrImages[imageIndex + 1])
+		pixelsImg1, pixelsImg2 = feature.siftFeatures(img1_gray, img2_gray)
+		# vizMatches(vizImages[imageIndex],vizImages[imageIndex + 1],pixelsImg1,pixelsImg2) # visualize the feature matches before RANSAC
 
-		F, inlierImg1Pixels, inlierImg2Pixels, _, _ = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
-		# vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels) # visualize after RANSAC
+		# -----------------OWN CODE START-----------------------------
+		# # compute Fundamental matrix using RANSAC
+		# F, inlierImg1Pixels, inlierImg2Pixels, _, _ = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
+		# # vizMatches(vizImages[imageIndex], vizImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels) # visualize after RANSAC
+		# # check if obtained fundamental matrix is valid or not - This is for debugging purpose only
+		# # checkF.isFValid(F, inlierImg1Pixels, inlierImg2Pixels, bgrImages[imageIndex], bgrImages[imageIndex + 1], imageIndex)
 
-		# check if obtained fundamental matrix is valid or not
-		checkF.isFValid(F, inlierImg1Pixels, inlierImg2Pixels, bgrImages[imageIndex], bgrImages[imageIndex + 1],
-						imageIndex)
+		# # get all poses (4) possible and E - Essential Matrix
+		# E, Cset, Rset = extractPose.extractPose(F, K)
 
-		# do this only once - first time
-		# if imageIndex == 0:
-		# get all poses (4) possible and E - Essential Matrix
-		E, Cset, Rset = extractPose.extractPose(F, K)
-
-		points1new = np.hstack((np.array(inlierImg1Pixels), np.ones((len(inlierImg1Pixels), 1)))).T
-		points2new = np.hstack((np.array(inlierImg2Pixels), np.ones((len(inlierImg2Pixels), 1)))).T
-		points1k = np.linalg.inv(K).dot(points1new)
-		points1 = points1k.T
-		points2k = np.linalg.inv(K).dot(points2new)
-		points2 = points2k.T
-
-		# this is to perform triangulation using LS method
-		# Xset = triangulation.linearTriangulationLS(K, Cset, Rset, inlierImg1Pixels, inlierImg2Pixels)
-
-		# this is to perform triangulation using Eigen method
-		# Xset = triangulation.linearTriangulationEigen(K, np.zeros((3, 1)), np.diag([1, 1, 1]), Cset, Rset,
-		# 											  inlierImg1Pixels, inlierImg2Pixels)
-		# check chirality and obtain the true pose
-		newR, newT,alpha = checkChirality(Rset,Cset,points1, points2,alpha)
-
-		newH = np.hstack((newR,newT.reshape(3,1)))
-		newH = np.vstack((newH,[0,0,0,1]))
-		H = np.matmul(H,newH)
-		print H
-		T.append(H[0:3,3])
-		# R.append(r)
-		# print('First camera position and orientation')
-		# print(c)
-		# print(r)
-
-		# # perform non-linear triangulation to obtain optimized set of world coordinates
-		# # I dont think we need this
-		# c_old = c
-		# r_old = r
+		# # convert points to image frame by multiplying  by inv(K)
+		# points1new = np.hstack((np.array(inlierImg1Pixels), np.ones((len(inlierImg1Pixels), 1)))).T
+		# points2new = np.hstack((np.array(inlierImg2Pixels), np.ones((len(inlierImg2Pixels), 1)))).T
+		# points1k = np.linalg.inv(K).dot(points1new)
+		# points1 = points1k.T
+		# points2k = np.linalg.inv(K).dot(points2new)
+		# points2 = points2k.T
 		#
-		# # Saving the matched pixel coordinates in the second image frame
-		# prevFrameMatchedPixels = inlierImg2Pixels
-		# prevFrameMatchedWorldPixels = X
-		#
-		# else:
-		# 	# Finding common values in previous frame matched points and the current matched points
-		# 	commonIndicesPrevFrame, commonIndicesNewFrame = findCommon(prevFrameMatchedPixels, inlierImg1Pixels, imageIndex)
-		# 	XCurr = prevFrameMatchedWorldPixels[commonIndicesPrevFrame]
-		# 	xCurr = np.array(inlierImg2Pixels)[commonIndicesNewFrame]
-		#
-		# 	# perform linear pnp to estimate new R,T - resection problem
-		# 	c_new, r_new = pnp.linear(xCurr, XCurr, K)
-		#
-		# 	print('c_new')
-		# 	print(c_new)
-		#
-		# 	# project points seen in 3rd image into world coordinates to use for next iteration
-		# 	prevFrameMatchedWorldPixels = np.squeeze(triangulation.linearTriangulationEigen(K, np.zeros((3, 1)), np.diag([1, 1, 1]), c_new, r_new,
-		# 												   inlierImg1Pixels, inlierImg2Pixels))
-		#
-		# 	# prevFrameMatchedWorldPixels = project2dTo3d.getWorldCoordinates(inlierImg2Pixels, K, r_new, c_new)
-		# 	prevFrameMatchedPixels = inlierImg2Pixels
-		# 	# c_old = c_new
-		# 	# r_old = r_new
-		#
-		# 	# refine the above value using non-linear triangulation
-		#
-		# 	# Combining RT and multiplying with the previous RT
-		# 	# newR, newT, prevRT = combineRT(r, t, prevRT)
-		# T.append(c_old)
-		# R.append(r_old)
+		# # check chirality and obtain the true pose
+		# newR, newT, alpha = checkChirality(Rset, Cset, points1, points2, alpha)
 
+		# newH = np.hstack((newR, newT.reshape(3, 1)))
+		# newH = np.vstack((newH, [0, 0, 0, 1]))
+		# H = np.matmul(H, newH)
+		# print(H)
+		# T.append(H[0:3, 3])
+		# print('--------------------------')
+
+		# ----------------END OWN functions---------------------------
+
+		# -------------------Inbuilt Usage----------------------------
+		# use in-built function for comparison
+		pixelsImg1 = np.int32(pixelsImg1)
+		pixelsImg2 = np.int32(pixelsImg2)
+		F_inbuilt, mask = cv2.findFundamentalMat(pixelsImg1, pixelsImg2, method=cv2.FM_RANSAC, param1=0.01, param2=.99)
+		# print(F_inbuilt)
+		inlierImg1Pixels = pixelsImg1[mask.ravel()==1]
+		inlierImg2Pixels = pixelsImg2[mask.ravel()==1]
+		E_cv2, mask = cv2.findEssentialMat(inlierImg1Pixels, inlierImg2Pixels, np.array(K), cv2.FM_RANSAC, prob=0.99,
+										   threshold=0.01)
+		# inlierImg1Pixels = pixelsImg1[mask.ravel() == 1]
+		# inlierImg2Pixels = pixelsImg2[mask.ravel() == 1]
+		_, r, t, _ = cv2.recoverPose(E_cv2, inlierImg1Pixels, inlierImg2Pixels, np.array(K))
+
+		newH_inbuilt = np.hstack((r, t.reshape(3, 1)))
+		newH_inbuilt = np.vstack((newH_inbuilt, [0, 0, 0, 1]))
+		H_inbuilt = np.matmul(H_inbuilt, newH_inbuilt)
+		print(H_inbuilt)
+		T_inbuilt.append(H_inbuilt[0:3, 3])
 		print('--------------------------')
+		# -------------------END inbuilt usage------------------------
 
+	# visualize the camera pose
+	vizCameraPose(T, T_inbuilt)
 
-		# visualize the camera pose
-	vizCameraPose(R, T)
 
 cv2.destroyAllWindows()
 

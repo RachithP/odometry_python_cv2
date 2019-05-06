@@ -50,7 +50,6 @@ def extractPose(F, K):
 	else:
 		C1 = u[:, 2]
 
-
 	# second possiblity
 	R2 = u.dot(W).dot(vh)
 
