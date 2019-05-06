@@ -68,15 +68,15 @@ def extractImages(path, number_of_images):
 	# Uncomment this to run on all the images
 	# for k in range(30,len(filesnumber)):
 	# Removing first 30 images because it is too bright
-	for k in range(30, number_of_images + 200):
+	for k in range(30, number_of_images + 1000):
 		filenames.append(path + "/frame" + str(k) + ".png")
 
 	images = []
 	for filename in filenames:
 		im_read = cv2.imread(filename, 0)
 		# blur the image
-		blur = cv2.GaussianBlur(im_read, (5, 5), 0)
-		images.append(blur)
+		im_read = cv2.GaussianBlur(im_read, (5, 5), 0)
+		images.append(im_read)
 
 	print('Done extracting images....')
 
@@ -99,6 +99,9 @@ def vizCameraPose(R, T):
 	axis.set_ylabel('y')
 	axis.set_zlabel('z')
 	plt.title('Camera movement')
+	axis.set_xlim(-10,500)
+	axis.set_ylim(-10,500)
+	axis.set_zlim(-20,500)
 	plt.show()
 
 
@@ -165,7 +168,8 @@ def main():
 	T = []
 	R = []
 	prevRT = np.diagflat([1, 1, 1, 1])
-
+	alpha = 0
+	H = np.identity(4)
 	for imageIndex in range(len(bgrImages) - 1):
 
 		# extract images from the input array
@@ -198,14 +202,17 @@ def main():
 		# Xset = triangulation.linearTriangulationEigen(K, np.zeros((3, 1)), np.diag([1, 1, 1]), Cset, Rset,
 		# 											  inlierImg1Pixels, inlierImg2Pixels)
 		# check chirality and obtain the true pose
-		# c, r, X = checkChirality(Cset, Rset, Xset)
+		newR, newT,alpha = checkChirality(Rset,Cset,points1, points2,alpha)
 
-
-		T.append(c)
-		R.append(r)
-		print('First camera position and orientation')
-		print(c)
-		print(r)
+		newH = np.hstack((newR,newT.reshape(3,1)))
+		newH = np.vstack((newH,[0,0,0,1]))
+		H = np.matmul(H,newH)
+		print H
+		T.append(H[0:3,3])
+		# R.append(r)
+		# print('First camera position and orientation')
+		# print(c)
+		# print(r)
 
 		# # perform non-linear triangulation to obtain optimized set of world coordinates
 		# # I dont think we need this
@@ -247,7 +254,7 @@ def main():
 		print('--------------------------')
 
 
-	# visualize the camera pose
+		# visualize the camera pose
 	vizCameraPose(R, T)
 
 cv2.destroyAllWindows()
