@@ -58,25 +58,18 @@ def linear(img_points, world_points, K):
 	img_points = np.array(img_points)
 	world_points = np.squeeze(np.array(world_points))
 
-
-
 	n = len(img_points)
-	print n
-	if len(img_points)<6:
-		print 'ERROR!!'
-		print 'NOT ENOUGH POINTS TO SOLVE PNP'
+
+	if len(img_points) < 6:
+		print('ERROR!!')
+		print('NOT ENOUGH POINTS TO SOLVE PNP')
 		quit()
 
-	# make points homogeneous and normalize image pixel by multiplying it with inv(K)
-
-
-	#normalize points
+	# normalize points
 	# img_points,norm = normalizePoints(img_points)
-	# print img_points
+
 	hom_img_points = np.hstack((img_points, np.ones((img_points.shape[0], 1)))).T
 	hom_world_points = np.hstack((world_points, np.ones((world_points.shape[0], 1)))).T
-	# print hom_img_points
-
 
 	M = np.zeros((3 * n, 12 + n))
 	for i in range(n):
@@ -85,9 +78,9 @@ def linear(img_points, world_points, K):
 		M[3 * i + 2, 8:12] = hom_world_points[:, i]
 		M[3 * i:3 * i + 3, i + 12] = -hom_img_points[:, i]
 
-	# svd to solve for last eigen vector
+	# svd to solve for last eigenvector
 	u, s, vh = np.linalg.svd(M)
-	print M.shape
+
 	# get P matrix
 	P = vh[-1, :12].reshape((3, 4))
 
@@ -95,10 +88,8 @@ def linear(img_points, world_points, K):
 	# RT = P
 	RT = np.linalg.inv(K).dot(P)
 
-	print RT
 	# separate R and T from RT
 	R = RT[:, :3]
-	quit()
 	u, s, vh = np.linalg.svd(R)
 	if np.linalg.det(u.dot(vh)) > 0:
 		R = u.dot(vh)
@@ -107,12 +98,8 @@ def linear(img_points, world_points, K):
 		R = -u.dot(vh)
 		T = -RT[:, 3] / s[0]
 
-	# print("Translation vector", T)
-	print("Determinant of rotation matrix ", np.linalg.det(R))
-
 	C = -R.T.dot(T)
+	# print("Determinant of rotation matrix ", np.linalg.det(R))
+	# print("Translation vector", C)
 
-	return np.array([C]), np.array([R])
-
-
-
+	return np.array([C]), np.array([R.T])

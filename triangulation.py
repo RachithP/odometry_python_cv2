@@ -49,9 +49,10 @@ def linearTriangulationEigen(K, C0, R0, Cset, Rset, img1_pixels, img2_pixels):
 	K = np.array(K)
 	# obtain projective matrix for first image with identity rotation and 0 translation
 
-	R0 = np.squeeze(R0)
-	C0 = C0.reshape(3, 1)
+	R0 = np.squeeze(R0).T
+	C0 = -R0.dot(C0.reshape(3, 1))
 	P1 = K.dot(np.hstack((R0, C0)))
+
 	Xset = []
 
 	for ind in range(len(Rset)):
@@ -89,11 +90,15 @@ def linearTriangulationEigen(K, C0, R0, Cset, Rset, img1_pixels, img2_pixels):
 			u, s, vh = np.linalg.svd(M)
 			P = vh.T[:, -1]
 
-			if P[3] !=0:
-				# normalize the vector X
-				P = P / P[3]
+			# if P[3] == 0:
+			# 	normalize the vector X
+				# P = [np.inf, np.inf, np.inf]
+			# else:
 
-				X.append(P[:3])
+			P = P / P[3]
+
+			X.append(P[:3])
+
 		Xset.append(X)
 
 	return np.array(Xset)

@@ -25,7 +25,7 @@ from mpl_toolkits.mplot3d import Axes3D as axes3D
 import checkF
 from chiralityCheck import checkChirality
 import pnp
-
+import project2dTo3d
 
 def vizMatches(image1, image2, pixelsImg1, pixelsImg2):
 	'''
@@ -47,7 +47,7 @@ def vizMatches(image1, image2, pixelsImg1, pixelsImg2):
 
 	for ind in range(len(pixelsImg1)):
 		# draw the keypoints
-		color = tuple([np.random.randint(0, 255) for _ in xrange(3)])
+		color = tuple([np.random.randint(0, 255) for _ in range(3)])
 		cv2.line(view, (int(pixelsImg1[ind][0]), int(pixelsImg1[ind][1])),
 				 (int(pixelsImg2[ind][0] + w1), int(pixelsImg2[ind][1])), color)
 
@@ -74,7 +74,9 @@ def extractImages(path, number_of_images):
 	images = []
 	for filename in filenames:
 		im_read = cv2.imread(filename, 0)
-		images.append(im_read)
+		# blur the image
+		blur = cv2.GaussianBlur(im_read, (5, 5), 0)
+		images.append(blur)
 
 	print('Done extracting images....')
 
@@ -117,15 +119,19 @@ def combineRT(r, t, prevRT):
 	newT = np.array(RT[0:3, 3])
 	return newR, newT, prevRT
 
-'''
-This returns the indices in the curent frame which were present in the previous frame
-'''
-def findCommon(prevMatchedPixelLocations,currentMatchedPixelLocations):
 
+def findCommon(prevMatchedPixelLocations, currentMatchedPixelLocations, count):
+	'''
+	This returns the indices of features in the curent frame which were present in the previous frame
+	:param prevMatchedPixelLocations:
+	:param currentMatchedPixelLocations:
+	:return:
+	'''
 	both = set(prevMatchedPixelLocations).intersection(currentMatchedPixelLocations)
 	commonIndicesPrevFrame = [prevMatchedPixelLocations.index(x) for x in both]
 	commonIndicesNewFrame = [currentMatchedPixelLocations.index(x) for x in both]
-	return np.array(commonIndicesPrevFrame),np.array(commonIndicesNewFrame)
+
+	return np.array(commonIndicesPrevFrame), np.array(commonIndicesNewFrame)
 
 
 def main():
@@ -175,8 +181,8 @@ def main():
 
 		# do this only once - first time
 		if imageIndex == 0:
-			# get all poses (4) possible
-			Cset, Rset = extractPose.extractPose(F, K)
+			# get all poses (4) possible and E - Essential Matrix
+			E, Cset, Rset = extractPose.extractPose(F, K)
 
 			# this is to perform triangulation using LS method
 			# Xset = triangulation.linearTriangulationLS(K, Cset, Rset, inlierImg1Pixels, inlierImg2Pixels)
@@ -189,9 +195,9 @@ def main():
 			c, r, X = checkChirality(Cset, Rset, Xset)
 			T.append(c)
 			R.append(r)
-			print 'First camera position and orientation'
-			print c
-			print r
+			print('First camera position and orientation')
+			print(c)
+			print(r)
 
 			# perform non-linear triangulation to obtain optimized set of world coordinates
 			# I dont think we need this
@@ -204,45 +210,39 @@ def main():
 
 		else:
 			# Finding common values in previous frame matched points and the current matched points
-			commonIndicesPrevFrame,commonIndicesNewFrame = findCommon(prevFrameMatchedPixels,inlierImg1Pixels)
+			commonIndicesPrevFrame, commonIndicesNewFrame = findCommon(prevFrameMatchedPixels, inlierImg1Pixels, imageIndex)
 			XCurr = prevFrameMatchedWorldPixels[commonIndicesPrevFrame]
 			xCurr = np.array(inlierImg2Pixels)[commonIndicesNewFrame]
 
 			# perform linear pnp to estimate new R,T - resection problem
 			c_new, r_new = pnp.linear(xCurr, XCurr, K)
-			quit()
 
-			print 'c_new'
-			print c_new
+			print('c_new')
+			print(c_new)
 
 			# project points seen in 3rd image into world coordinates to use for next iteration
-			X_new = triangulation.linearTriangulationEigen(K, np.zeros((3, 1)), np.diag([1, 1, 1]), c_new, r_new, inlierImg1Pixels, inlierImg2Pixels)
+			prevFrameMatchedWorldPixels = np.squeeze(triangulation.linearTriangulationEigen(K, np.zeros((3, 1)), np.diag([1, 1, 1]), c_new, r_new,
+														   inlierImg1Pixels, inlierImg2Pixels))
 
-			X = X_new
+			# prevFrameMatchedWorldPixels = project2dTo3d.getWorldCoordinates(inlierImg2Pixels, K, r_new, c_new)
+			prevFrameMatchedPixels = inlierImg2Pixels
+			# c_old = c_new
+			# r_old = r_new
 
-			# I dont think we need this
-			c_old = c_new
-			r_old = r_new
-		# refine the above value using non-linear triangulation
+			# refine the above value using non-linear triangulation
 
-		# Combining RT and multiplying with the previous RT
-		# newR, newT, prevRT = combineRT(r, t, prevRT)
-			T.append(c_new)
-			R.append(r_new)
-		
-		# # cv2.imshow('prev image',bgrImages[imageIndex])
-		# cv2.imshow('prev image',bgrImages[imageIndex+1])
-		# cv2.waitKey(0)
-		print '--------------------------'
+			# Combining RT and multiplying with the previous RT
+			# newR, newT, prevRT = combineRT(r, t, prevRT)
+		T.append(c_old)
+		R.append(r_old)
 
-	# visualize
-	# vizCameraPose(R, T)
+		print('--------------------------')
 
+
+	# visualize the camera pose
+	vizCameraPose(R, T)
 
 cv2.destroyAllWindows()
-
-# visualize the camera pose
-
 
 if __name__ == "__main__":
 	main()
