@@ -180,61 +180,69 @@ def main():
 						imageIndex)
 
 		# do this only once - first time
-		if imageIndex == 0:
-			# get all poses (4) possible and E - Essential Matrix
-			E, Cset, Rset = extractPose.extractPose(F, K)
+		# if imageIndex == 0:
+		# get all poses (4) possible and E - Essential Matrix
+		E, Cset, Rset = extractPose.extractPose(F, K)
 
-			# this is to perform triangulation using LS method
-			# Xset = triangulation.linearTriangulationLS(K, Cset, Rset, inlierImg1Pixels, inlierImg2Pixels)
+		points1new = np.hstack((np.array(inlierImg1Pixels), np.ones((len(inlierImg1Pixels), 1)))).T
+		points2new = np.hstack((np.array(inlierImg2Pixels), np.ones((len(inlierImg2Pixels), 1)))).T
+		points1k = np.linalg.inv(K).dot(points1new)
+		points1 = points1k.T
+		points2k = np.linalg.inv(K).dot(points2new)
+		points2 = points2k.T
 
-			# this is to perform triangulation using Eigen method
-			Xset = triangulation.linearTriangulationEigen(K, np.zeros((3, 1)), np.diag([1, 1, 1]), Cset, Rset,
-														  inlierImg1Pixels, inlierImg2Pixels)
+		# this is to perform triangulation using LS method
+		# Xset = triangulation.linearTriangulationLS(K, Cset, Rset, inlierImg1Pixels, inlierImg2Pixels)
 
-			# check chirality and obtain the true pose
-			c, r, X = checkChirality(Cset, Rset, Xset)
-			T.append(c)
-			R.append(r)
-			print('First camera position and orientation')
-			print(c)
-			print(r)
+		# this is to perform triangulation using Eigen method
+		# Xset = triangulation.linearTriangulationEigen(K, np.zeros((3, 1)), np.diag([1, 1, 1]), Cset, Rset,
+		# 											  inlierImg1Pixels, inlierImg2Pixels)
+		# check chirality and obtain the true pose
+		# c, r, X = checkChirality(Cset, Rset, Xset)
 
-			# perform non-linear triangulation to obtain optimized set of world coordinates
-			# I dont think we need this
-			c_old = c
-			r_old = r
 
-			# Saving the matched pixel coordinates in the second image frame
-			prevFrameMatchedPixels = inlierImg2Pixels
-			prevFrameMatchedWorldPixels = X
+		T.append(c)
+		R.append(r)
+		print('First camera position and orientation')
+		print(c)
+		print(r)
 
-		else:
-			# Finding common values in previous frame matched points and the current matched points
-			commonIndicesPrevFrame, commonIndicesNewFrame = findCommon(prevFrameMatchedPixels, inlierImg1Pixels, imageIndex)
-			XCurr = prevFrameMatchedWorldPixels[commonIndicesPrevFrame]
-			xCurr = np.array(inlierImg2Pixels)[commonIndicesNewFrame]
-
-			# perform linear pnp to estimate new R,T - resection problem
-			c_new, r_new = pnp.linear(xCurr, XCurr, K)
-
-			print('c_new')
-			print(c_new)
-
-			# project points seen in 3rd image into world coordinates to use for next iteration
-			prevFrameMatchedWorldPixels = np.squeeze(triangulation.linearTriangulationEigen(K, np.zeros((3, 1)), np.diag([1, 1, 1]), c_new, r_new,
-														   inlierImg1Pixels, inlierImg2Pixels))
-
-			# prevFrameMatchedWorldPixels = project2dTo3d.getWorldCoordinates(inlierImg2Pixels, K, r_new, c_new)
-			prevFrameMatchedPixels = inlierImg2Pixels
-			# c_old = c_new
-			# r_old = r_new
-
-			# refine the above value using non-linear triangulation
-
-			# Combining RT and multiplying with the previous RT
-			# newR, newT, prevRT = combineRT(r, t, prevRT)
-		T.append(c_old)
-		R.append(r_old)
+		# # perform non-linear triangulation to obtain optimized set of world coordinates
+		# # I dont think we need this
+		# c_old = c
+		# r_old = r
+		#
+		# # Saving the matched pixel coordinates in the second image frame
+		# prevFrameMatchedPixels = inlierImg2Pixels
+		# prevFrameMatchedWorldPixels = X
+		#
+		# else:
+		# 	# Finding common values in previous frame matched points and the current matched points
+		# 	commonIndicesPrevFrame, commonIndicesNewFrame = findCommon(prevFrameMatchedPixels, inlierImg1Pixels, imageIndex)
+		# 	XCurr = prevFrameMatchedWorldPixels[commonIndicesPrevFrame]
+		# 	xCurr = np.array(inlierImg2Pixels)[commonIndicesNewFrame]
+		#
+		# 	# perform linear pnp to estimate new R,T - resection problem
+		# 	c_new, r_new = pnp.linear(xCurr, XCurr, K)
+		#
+		# 	print('c_new')
+		# 	print(c_new)
+		#
+		# 	# project points seen in 3rd image into world coordinates to use for next iteration
+		# 	prevFrameMatchedWorldPixels = np.squeeze(triangulation.linearTriangulationEigen(K, np.zeros((3, 1)), np.diag([1, 1, 1]), c_new, r_new,
+		# 												   inlierImg1Pixels, inlierImg2Pixels))
+		#
+		# 	# prevFrameMatchedWorldPixels = project2dTo3d.getWorldCoordinates(inlierImg2Pixels, K, r_new, c_new)
+		# 	prevFrameMatchedPixels = inlierImg2Pixels
+		# 	# c_old = c_new
+		# 	# r_old = r_new
+		#
+		# 	# refine the above value using non-linear triangulation
+		#
+		# 	# Combining RT and multiplying with the previous RT
+		# 	# newR, newT, prevRT = combineRT(r, t, prevRT)
+		# T.append(c_old)
+		# R.append(r_old)
 
 		print('--------------------------')
 
