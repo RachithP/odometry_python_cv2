@@ -48,7 +48,7 @@ def vizMatches(image1, image2, pixelsImg1, pixelsImg2):
 		cv2.line(view, (int(pixelsImg1[ind][0]), int(pixelsImg1[ind][1])),
 				 (int(pixelsImg2[ind][0] + w1), int(pixelsImg2[ind][1])), color)
 
-	cv2.imshow("view", view)
+	cv2.imshow("view", cv2.resize(view, (1800, 1000)))
 	cv2.waitKey(0)
 
 
@@ -90,22 +90,23 @@ def vizCameraPose(T, T_inbuilt):
 	:return:
 	'''
 	T = np.array(T)
-	T_inbuilt = np.array(T_inbuilt)
+	# T_inbuilt = np.array(T_inbuilt)
 
-	fig = plt.figure(1)
+	plt.figure(1)
 	# axis = fig.add_subplot(1, 1, 1, projection="3d")
 	# axis.scatter(T[:, 0].flatten(), T[:, 1].flatten(), T[:, 2].flatten(), marker=".")
 	# axis.set_xlabel('x')
 	# axis.set_ylabel('y')
 	# axis.set_zlabel('z')
-	# plt.title('Camera movement')
 	# axis.set_xlim(-400, 400)
 	# axis.set_ylim(-400, 400)
 	# axis.set_zlim(-600, 1000)
-	# plt.plot(T[:, 0].flatten(), T[:, 2].flatten(), 'r.', label="Our implementation")
-	plt.plot(T_inbuilt[:, 0].flatten(), T_inbuilt[:, 2].flatten(), 'b.', label="Inbuilt function implementation")
-	plt.xlim(-20, 50)
-	plt.ylim(-50, 50)
+	plt.plot(T[:, 0].flatten(), T[:, 2].flatten(), 'r.', label="Our implementation")
+	# plt.plot(T_inbuilt[:, 0].flatten(), T_inbuilt[:, 2].flatten(), 'b.', label="Inbuilt function implementation")
+	# plt.xlim(-200, 1000)
+	# plt.ylim(-500, 1000)
+	plt.legend()
+	plt.title('Camera Movement')
 	plt.show()
 
 
@@ -116,7 +117,7 @@ def main():
 						help='Path to dataset, Default:../Oxford_dataset/stereo/centre')
 	Parser.add_argument('--ransacEpsilonThreshold', default=0.01,
 						help='Threshold used for deciding inlier during RANSAC, Default:0.01')
-	Parser.add_argument('--inlierRatioThreshold', default=0.75,
+	Parser.add_argument('--inlierRatioThreshold', default=0.8,
 						help='Threshold to consider a fundamental matrix as valid, Default:0.85')
 
 	Args = Parser.parse_args()
@@ -144,78 +145,82 @@ def main():
 	H = np.identity(4)
 	H_inbuilt = np.identity(4)
 
-	for imageIndex in range(24, len(filesnumber)-3700):
-		print(imageIndex)
+	for imageIndex in range(50, len(filesnumber)-60):
+		try:
+			print(imageIndex)
 
-		# bgrImages, vizImages = extractImages(new_path, 20)
-		# ------------Process pair of images -------------------------------------
-		img1 = cv2.imread(new_path + "/frame" + str(imageIndex) + ".png", -1)
-		# histogram equalization of the image
-		equ1 = cv2.equalizeHist(cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY))
-		# blur the image
-		img1_gray = cv2.GaussianBlur(equ1, (3, 3), 1)
-		img2 = cv2.imread(new_path + "/frame" + str(imageIndex + 1) + ".png", -1)
-		# histogram equalization of the image
-		equ2 = cv2.equalizeHist(cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY))
-		# blur the image
-		img2_gray = cv2.GaussianBlur(equ2, (3, 3), 1)
+			# bgrImages, vizImages = extractImages(new_path, 20)
+			# ------------Process pair of images -------------------------------------
+			img1 = cv2.imread(new_path + "/frame" + str(imageIndex) + ".png", -1)
+			# histogram equalization of the image
+			equ1 = cv2.equalizeHist(cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY))
+			# blur the image
+			img1_gray = cv2.GaussianBlur(equ1, (5, 5), 0)
+			img2 = cv2.imread(new_path + "/frame" + str(imageIndex + 1) + ".png", -1)
+			# histogram equalization of the image
+			equ2 = cv2.equalizeHist(cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY))
+			# blur the image
+			img2_gray = cv2.GaussianBlur(equ2, (5, 5), 0)
 
-		# extract images from the input array
-		# pixelsImg1, pixelsImg2 = feature.extractMatchFeatures(bgrImages[imageIndex], bgrImages[imageIndex + 1])
-		pixelsImg1, pixelsImg2 = feature.siftFeatures(img1_gray, img2_gray)
-		# vizMatches(vizImages[imageIndex],vizImages[imageIndex + 1],pixelsImg1,pixelsImg2) # visualize the feature matches before RANSAC
+			# extract images from the input array
+			pixelsImg1, pixelsImg2 = feature.extractMatchFeatures(img1_gray, img2_gray)
+			# pixelsImg1, pixelsImg2 = feature.siftFeatures(img1_gray, img2_gray)
+			# vizMatches(img1, img2, pixelsImg1, pixelsImg2) # visualize the feature matches before RANSAC
 
-		# -----------------OWN CODE START-----------------------------
-		# # compute Fundamental matrix using RANSAC
-		# F, inlierImg1Pixels, inlierImg2Pixels, _, _ = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
-		# # vizMatches(vizImages[imageIndex], vizImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels) # visualize after RANSAC
-		# # check if obtained fundamental matrix is valid or not - This is for debugging purpose only
-		# # checkF.isFValid(F, inlierImg1Pixels, inlierImg2Pixels, bgrImages[imageIndex], bgrImages[imageIndex + 1], imageIndex)
+			# -----------------OWN CODE START-----------------------------
+			# compute Fundamental matrix using RANSAC
+			F, inlierImg1Pixels, inlierImg2Pixels, _, _ = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
+			# vizMatches(img1, img2, inlierImg1Pixels, inlierImg2Pixels) # visualize after RANSAC
+			# check if obtained fundamental matrix is valid or not - This is for debugging purpose only
+			checkF.isFValid(F, inlierImg1Pixels, inlierImg2Pixels, img1, img2, imageIndex)
 
-		# # get all poses (4) possible and E - Essential Matrix
-		# E, Cset, Rset = extractPose.extractPose(F, K)
+			# get all poses (4) possible and E - Essential Matrix
+			E, Cset, Rset = extractPose.extractPose(F, K)
 
-		# # convert points to image frame by multiplying  by inv(K)
-		# points1new = np.hstack((np.array(inlierImg1Pixels), np.ones((len(inlierImg1Pixels), 1)))).T
-		# points2new = np.hstack((np.array(inlierImg2Pixels), np.ones((len(inlierImg2Pixels), 1)))).T
-		# points1k = np.linalg.inv(K).dot(points1new)
-		# points1 = points1k.T
-		# points2k = np.linalg.inv(K).dot(points2new)
-		# points2 = points2k.T
-		#
-		# # check chirality and obtain the true pose
-		# newR, newT, alpha = checkChirality(Rset, Cset, points1, points2, alpha)
+			# convert points to image frame by multiplying  by inv(K)
+			points1new = np.hstack((np.array(inlierImg1Pixels), np.ones((len(inlierImg1Pixels), 1)))).T
+			points2new = np.hstack((np.array(inlierImg2Pixels), np.ones((len(inlierImg2Pixels), 1)))).T
+			points1k = np.linalg.inv(K).dot(points1new)
+			points1 = points1k.T
+			points2k = np.linalg.inv(K).dot(points2new)
+			points2 = points2k.T
 
-		# newH = np.hstack((newR, newT.reshape(3, 1)))
-		# newH = np.vstack((newH, [0, 0, 0, 1]))
-		# H = np.matmul(H, newH)
-		# print(H)
-		# T.append(H[0:3, 3])
-		# print('--------------------------')
+			# check chirality and obtain the true pose
+			newR, newT, alpha = checkChirality(Rset, Cset, points1, points2, alpha)
 
-		# ----------------END OWN functions---------------------------
+			newH = np.hstack((newR, newT.reshape(3, 1)))
+			newH = np.vstack((newH, [0, 0, 0, 1]))
+			H = np.matmul(H, newH)
+			print(H)
+			T.append(H[0:3, 3])
+			print('--------------------------')
 
-		# -------------------Inbuilt Usage----------------------------
-		# use in-built function for comparison
-		pixelsImg1 = np.int32(pixelsImg1)
-		pixelsImg2 = np.int32(pixelsImg2)
-		F_inbuilt, mask = cv2.findFundamentalMat(pixelsImg1, pixelsImg2, method=cv2.FM_RANSAC, param1=0.01, param2=.99)
-		# print(F_inbuilt)
-		inlierImg1Pixels = pixelsImg1[mask.ravel()==1]
-		inlierImg2Pixels = pixelsImg2[mask.ravel()==1]
-		E_cv2, mask = cv2.findEssentialMat(inlierImg1Pixels, inlierImg2Pixels, np.array(K), cv2.FM_RANSAC, prob=0.99,
-										   threshold=0.01)
-		# inlierImg1Pixels = pixelsImg1[mask.ravel() == 1]
-		# inlierImg2Pixels = pixelsImg2[mask.ravel() == 1]
-		_, r, t, _ = cv2.recoverPose(E_cv2, inlierImg1Pixels, inlierImg2Pixels, np.array(K))
+			# ----------------END OWN functions---------------------------
 
-		newH_inbuilt = np.hstack((r, t.reshape(3, 1)))
-		newH_inbuilt = np.vstack((newH_inbuilt, [0, 0, 0, 1]))
-		H_inbuilt = np.matmul(H_inbuilt, newH_inbuilt)
-		print(H_inbuilt)
-		T_inbuilt.append(H_inbuilt[0:3, 3])
-		print('--------------------------')
-		# -------------------END inbuilt usage------------------------
+			# # # -------------------Inbuilt Usage----------------------------
+			# # # use in-built function for comparison
+			# pixelsImg1 = np.array(pixelsImg1)
+			# pixelsImg2 = np.array(pixelsImg2)
+			# # # F_inbuilt, mask = cv2.findFundamentalMat(pixelsImg1, pixelsImg2, method=cv2.FM_RANSAC, param1=0.01, param2=.99)
+			# # # print(F_inbuilt)
+			# E_cv2, mask1 = cv2.findEssentialMat(pixelsImg1, pixelsImg2, cameraMatrix=np.array(K), method=cv2.FM_RANSAC, prob=0.99,
+			# 								   threshold=1.0)
+			# _, r, t, _ = cv2.recoverPose(E_cv2, pixelsImg1, pixelsImg2, cameraMatrix=np.array(K), mask=mask1)
+			#
+			# newH_inbuilt = np.hstack((r, t.reshape(3, 1)))
+			# newH_inbuilt = np.vstack((newH_inbuilt, [0, 0, 0, 1]))
+			# H_inbuilt = np.matmul(H_inbuilt, newH_inbuilt)
+			# print(H_inbuilt)
+			# T_inbuilt.append(H_inbuilt[0:3, 3])
+			# print('--------------------------')
+			# # # -------------------END inbuilt usage------------------------
+			# # # visualize the camera pose for every 100 frames
+			# if imageIndex % 500 == 0:
+			# 	vizCameraPose(T, T_inbuilt)
+		except:
+			# visualize the camera pose
+			vizCameraPose(T, T_inbuilt)
+			quit()
 
 	# visualize the camera pose
 	vizCameraPose(T, T_inbuilt)

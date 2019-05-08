@@ -86,12 +86,12 @@ def isFValid(F, img1_pixels, img2_pixels, image1, image2, fig_num):
 			color = tuple([np.random.randint(0, 255) for _ in range(3)])
 			cv2.line(image1, (int(np.real(left_epipole[0])), np.real(int(left_epipole[1]))), (int(pixel_left[0]), int(pixel_right[1])), color)
 
-			# plotLine(image1, epipolar_line[0], epipolar_line[1], epipolar_line[2], fig_num)
+			plotLine(image1, epipolar_line[0], epipolar_line[1], epipolar_line[2], fig_num)
 			
-			# plt.plot(int(pixel_left[0]), int(pixel_left[1]), 'r+')
-			# plt.plot(int(np.real(left_epipole[0])), np.real(int(left_epipole[1])), 'b+')
+			plt.plot(int(pixel_left[0]), int(pixel_left[1]), 'r+')
+			plt.plot(int(np.real(left_epipole[0])), np.real(int(left_epipole[1])), 'b+')
 		except OverflowError:
 			continue
 
 
-	# plt.show()
+	plt.show()

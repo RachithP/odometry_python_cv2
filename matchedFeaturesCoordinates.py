@@ -81,7 +81,7 @@ def extractMatchFeatures(image1, image2):
 	# 		good.append(match)
 
 	#Taking only the best 50
-	matches = matches[:200]
+	matches = matches[: 50]
 	# matches = good
 
 	pixelsImg1, pixelsImg2 = getPixelCoordinates(kp1, kp2, matches)
