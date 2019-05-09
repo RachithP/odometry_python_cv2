@@ -18,7 +18,7 @@ import cv2
 import extractPose
 import preProcessing as dataPrep
 from ransac import RANSAC
-from matchedFeaturesCoordinates import extractMatchFeatures
+import matchedFeaturesCoordinates as features
 import triangulation
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D as axes3D
@@ -55,32 +55,6 @@ def vizMatches(image1, image2, pixelsImg1, pixelsImg2):
 	cv2.waitKey(0)
 
 
-def extractImages(path, number_of_images):
-	'''
-	In this function we store undistorted images in an array
-	:param path:
-	:return:
-	'''
-	# Read and store all images in the input folder
-	filesnumber = sorted(glob.glob(path + "/frame*.png"))
-	filenames = []
-
-	# Uncomment this to run on all the images
-	# for k in range(30,len(filesnumber)):
-	# Removing first 30 images because it is too bright
-	for k in range(30, number_of_images + 200):
-		filenames.append(path + "/frame" + str(k) + ".png")
-
-	images = []
-	for filename in filenames:
-		im_read = cv2.imread(filename, 0)
-		images.append(im_read)
-
-	print('Done extracting images....')
-
-	return images
-
-
 def vizCameraPose(R, T):
 	'''
 	Function to visualize camera movement
@@ -90,32 +64,19 @@ def vizCameraPose(R, T):
 	'''
 	T = np.array(T)
 
-	fig = plt.figure(1)
-	axis = fig.add_subplot(1, 1, 1, projection="3d")
-	axis.scatter(T[:, 0].flatten(), T[:, 1].flatten(), T[:, 2].flatten(), marker=".")
-	axis.set_xlabel('x')
-	axis.set_ylabel('y')
-	axis.set_zlabel('z')
+	# fig = plt.figure(1)
+	# axis = fig.add_subplot(1, 1, 1, projection="3d")
+	# axis.scatter(T[:, 0].flatten(), T[:, 1].flatten(), T[:, 2].flatten(), marker=".")
+	# axis.set_xlabel('x')
+	# axis.set_ylabel('y')
+	# axis.set_zlabel('z')
+	# plt.title('Camera movement')
+	# plt.pause(0.2)
+	plt.plot(T[:, 0].flatten(), T[:, 2].flatten(), 'r.', label="Our implementation")
+	plt.pause(0.1)
+	plt.xlabel('x-axis')
+	plt.ylabel('z-axis')
 	plt.title('Camera movement')
-	plt.show()
-
-
-def combineRT(r, t, prevRT):
-	'''
-	This function calculates the new R, T by multiplying present H (transformation matrix) with transformation matrix
-	of previous frame w.r.t base frame
-	:param r:
-	:param t:
-	:param prevRT:
-	:return:
-	'''
-	temp = np.hstack((r, t.reshape(3, 1)))
-	RT = np.vstack((temp, np.array([0, 0, 0, 1])))
-	RT = np.matmul(prevRT, RT)
-	prevRT = RT.copy()
-	newR = np.array(RT[0:3, 0:3])
-	newT = np.array(RT[0:3, 3])
-	return newR, newT, prevRT
 
 
 def main():
@@ -123,7 +84,7 @@ def main():
 	Parser = argparse.ArgumentParser()
 	Parser.add_argument('--Path', default="../Oxford_dataset/stereo/centre",
 						help='Path to dataset, Default:../Oxford_dataset/stereo/centre')
-	Parser.add_argument('--ransacEpsilonThreshold', default=1e-2,
+	Parser.add_argument('--ransacEpsilonThreshold', default=0.5,
 						help='Threshold used for deciding inlier during RANSAC, Default:0.01')
 	Parser.add_argument('--inlierRatioThreshold', default=0.85,
 						help='Threshold to consider a fundamental matrix as valid, Default:0.85')
@@ -141,73 +102,77 @@ def main():
 
 	# extract images from undistort
 	new_path = './undistort'
-	bgrImages = extractImages(new_path, 20)
+	# bgrImages = extractImages(new_path, 20)
+	filesnumber = sorted(glob.glob(new_path + "/frame*.png"))
 
 	# extract calibration matrix
 	K = dataPrep.extractCalibrationMatrix(path_to_model='./model')
 
 	T = []
 	R = []
-	prevRT = np.diagflat([1, 1, 1, 1])
+	H = np.identity(4)
 
-	for imageIndex in range(len(bgrImages) - 1):
+	for imageIndex in range(50, len(filesnumber) - 60):
+		print('Image number:', imageIndex)
+		# bgrImages, vizImages = extractImages(new_path, 20)
+		# ------------Process pair of images -------------------------------------
+		img1 = cv2.imread(new_path + "/frame" + str(imageIndex) + ".png", -1)
+
+		# histogram equalization of the image
+		equ1 = cv2.equalizeHist(cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY))
+		# blur the image
+		img1_gray = cv2.GaussianBlur(equ1, (3, 3), 0)
+		# second image
+		img2 = cv2.imread(new_path + "/frame" + str(imageIndex + 1) + ".png", -1)
+		# histogram equalization of the image
+		equ2 = cv2.equalizeHist(cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY))
+		# blur the image
+		img2_gray = cv2.GaussianBlur(equ2, (3, 3), 0)
 
 		# extract images from the input array
-		pixelsImg1, pixelsImg2 = extractMatchFeatures(bgrImages[imageIndex], bgrImages[imageIndex + 1])
-		# vizMatches(bgrImages[imageIndex],bgrImages[imageIndex + 1],pixelsImg1,pixelsImg2) # visualize the feature matches before RANSAC
+		pixelsImg1, pixelsImg2 = features.extractSIFTFeatures(img1_gray, img2_gray)
+		# vizMatches(img1, img2, pixelsImg1, pixelsImg2) # visualize the feature matches before RANSAC
 
-		F, inlierImg1Pixels, inlierImg2Pixels, _, _ = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
-		# vizMatches(bgrImages[imageIndex], bgrImages[imageIndex + 1], inlierImg1Pixels, inlierImg2Pixels) # visualize after RANSAC
+		# F, inlierImg1Pixels, inlierImg2Pixels, _, _ = RANSAC(pixelsImg1, pixelsImg2, epsilonThresh, inlierRatioThresh)
+		# vizMatches(img1, img2, inlierImg1Pixels, inlierImg2Pixels) # visualize after RANSAC
 
-		# check if obtained fundamental matrix is valid or not
-		checkF.isFValid(F, inlierImg1Pixels, inlierImg2Pixels, bgrImages[imageIndex], bgrImages[imageIndex + 1],
-						imageIndex)
+#---------Inbuilt------------------
+		# E_cv2, mask1 = cv2.findFundamentalMat(np.array(pixelsImg1), np.array(pixelsImg2), method=cv2.RANSAC,
+		# 									  focal=964.828979, pp=(643.788025, 484.40799), prob=0.85, threshold=0.5)
+		E_cv2, mask1 = cv2.findEssentialMat(np.array(pixelsImg1), np.array(pixelsImg2), method=cv2.RANSAC,
+											focal=964.828979, pp=(643.788025, 484.40799), prob=0.85, threshold=3.0)
+		points, r, t, mask = cv2.recoverPose(E_cv2, np.array(pixelsImg1), np.array(pixelsImg2), focal=964.828979,
+											 pp=(643.788025, 484.40799), mask=mask1)
 
-		# do this only once - first time
-		if imageIndex == 0:
-			# get all poses (4) possible
-			Cset, Rset = extractPose.extractPose(F, K)
+		newH = np.hstack((r.T, -r.T.dot(t.reshape(3, 1))))
+		newH = np.vstack((newH, [0, 0, 0, 1]))
+		H = np.matmul(H, newH)
+		T.append(H[0:3, 3])
+		print(H[0:3, 3])
+#----------------------------------
 
-			# this is to perform triangulation using LS method
-			# Xset = triangulation.linearTriangulationLS(K, Cset, Rset, inlierImg1Pixels, inlierImg2Pixels)
+		# # check if obtained fundamental matrix is valid or not
+		# # checkF.isFValid(F, inlierImg1Pixels, inlierImg2Pixels, img1_gray, img2_gray, imageIndex)
+		#
+		# # # get all poses (4) possible
+		# Cset, Rset = extractPose.extractPose(F, K)
+		#
+		# # # this is to perform triangulation using Eigen method
+		# X, c, r = triangulation.linearTriangulationEigen(K, np.zeros((3, 1)), np.diag([1, 1, 1]), Cset, Rset, inlierImg1Pixels, inlierImg2Pixels)
+		#
+		# newH = np.hstack((r.T, c.reshape(3, 1)))
+		# newH = np.vstack((newH, [0, 0, 0, 1]))
+		# H = np.matmul(H, newH)
+		# T.append(H[0:3, 3])
+		# print((H[0:3, 3]))
 
-			# this is to perform triangulation using Eigen method
-			Xset = triangulation.linearTriangulationEigen(K, np.zeros((3, 1)), np.diag([1, 1, 1]), Cset, Rset,
-														  inlierImg1Pixels, inlierImg2Pixels)
 
-			# check chirality and obtain the true pose
-			c, r, X = checkChirality(Cset, Rset, Xset)
-			T.append(c)
-			R.append(r)
+		# visualize
+		vizCameraPose(R, T)
 
-		# perform non-linear triangulation to obtain optimized set of world coordinates
-			c_old = c
-			r_old = r
-		else:
-			# perform linear pnp to estimate new R,T - resection problem
-			c_new, r_new = pnp.linear(inlierImg1Pixels, X, K)
-
-			# project points seen in 3rd image into world coordinates to use for next iteration
-			X_new = triangulation.linearTriangulationEigen(K, np.zeros((3, 1)), np.diag([1, 1, 1]), c_new, r_new, inlierImg1Pixels, inlierImg2Pixels)
-
-			X = X_new
-
-			c_old = c_new
-			r_old = r_new
-		# refine the above value using non-linear triangulation
-
-		# Combining RT and multiplying with the previous RT
-		# newR, newT, prevRT = combineRT(r, t, prevRT)
-			T.append(c_new)
-			R.append(R)
-
-	# visualize
-	vizCameraPose(R, T)
-
+	plt.show()
 
 cv2.destroyAllWindows()
-
-# visualize the camera pose
 
 
 if __name__ == "__main__":

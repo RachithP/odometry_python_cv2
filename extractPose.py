@@ -34,6 +34,9 @@ def extractPose(F, K):
 	# Re-compute E
 	E = u.dot(S).dot(vh)
 
+	# E = np.array(([0, -1, 0], [0.5, 0, 0.866], [0, 0, 0]))
+	# F = np.linalg.inv(K.T).dot(E).dot(np.linalg.inv(K))
+
 	# svd of Essential matrix to compute Rotation and translation matrices
 	u, s, vh = svd(E)
 
@@ -77,5 +80,8 @@ def extractPose(F, K):
 		R4 = -R4
 	C.append(C4)
 	R.append(R4)
+
+	# print(F)
+	# quit()
 
 	return np.array(C), np.array(R)
