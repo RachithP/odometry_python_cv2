@@ -47,7 +47,7 @@ def vizMatches(image1, image2, pixelsImg1, pixelsImg2):
 
 	for ind in range(len(pixelsImg1)):
 		# draw the keypoints
-		color = tuple([np.random.randint(0, 255) for _ in xrange(3)])
+		color = tuple([np.random.randint(0, 255) for _ in range(3)])
 		cv2.line(view, (int(pixelsImg1[ind][0]), int(pixelsImg1[ind][1])),
 				 (int(pixelsImg2[ind][0] + w1), int(pixelsImg2[ind][1])), color)
 
@@ -97,7 +97,7 @@ def vizCameraPose(R, T):
 	axis.set_ylabel('y')
 	axis.set_zlabel('z')
 	plt.title('Camera movement')
-	plt.show()
+	plt.pause(0.1)
 
 
 def combineRT(r, t, prevRT):
@@ -117,6 +117,7 @@ def combineRT(r, t, prevRT):
 	newT = np.array(RT[0:3, 3])
 	return newR, newT, prevRT
 
+
 '''
 This returns the indices in the curent frame which were present in the previous frame
 '''
@@ -125,6 +126,7 @@ def findCommon(prevMatchedPixelLocations,currentMatchedPixelLocations):
 	both = set(prevMatchedPixelLocations).intersection(currentMatchedPixelLocations)
 	commonIndicesPrevFrame = [prevMatchedPixelLocations.index(x) for x in both]
 	commonIndicesNewFrame = [currentMatchedPixelLocations.index(x) for x in both]
+
 	return np.array(commonIndicesPrevFrame),np.array(commonIndicesNewFrame)
 
 
@@ -151,16 +153,31 @@ def main():
 
 	# extract images from undistort
 	new_path = './undistort'
-	bgrImages = extractImages(new_path, 20)
+	# bgrImages = extractImages(new_path, 20)
+	filesnumber = sorted(glob.glob(new_path + "/frame*.png"))
 
 	# extract calibration matrix
 	K = dataPrep.extractCalibrationMatrix(path_to_model='./model')
 
 	T = []
 	R = []
-	prevRT = np.diagflat([1, 1, 1, 1])
+	prevRT = np.diag([1, 1, 1, 1])
 
-	for imageIndex in range(len(bgrImages) - 1):
+	for imageIndex in range(50, len(filesnumber) - 60):
+		print(imageIndex)
+
+		# bgrImages, vizImages = extractImages(new_path, 20)
+		# ------------Process pair of images -------------------------------------
+		img1 = cv2.imread(new_path + "/frame" + str(imageIndex) + ".png", -1)
+		# histogram equalization of the image
+		equ1 = cv2.equalizeHist(cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY))
+		# blur the image
+		img1_gray = cv2.GaussianBlur(equ1, (5, 5), 0)
+		img2 = cv2.imread(new_path + "/frame" + str(imageIndex + 1) + ".png", -1)
+		# histogram equalization of the image
+		equ2 = cv2.equalizeHist(cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY))
+		# blur the image
+		img2_gray = cv2.GaussianBlur(equ2, (5, 5), 0)
 
 		# extract images from the input array
 		pixelsImg1, pixelsImg2 = extractMatchFeatures(bgrImages[imageIndex], bgrImages[imageIndex + 1])
@@ -189,9 +206,9 @@ def main():
 			c, r, X = checkChirality(Cset, Rset, Xset)
 			T.append(c)
 			R.append(r)
-			print 'First camera position and orientation'
-			print c
-			print r
+			print('First camera position and orientation')
+			print(c)
+			print(r)
 
 			# perform non-linear triangulation to obtain optimized set of world coordinates
 			# I dont think we need this
@@ -212,8 +229,8 @@ def main():
 			c_new, r_new = pnp.linear(xCurr, XCurr, K)
 			quit()
 
-			print 'c_new'
-			print c_new
+			print('c_new')
+			print(c_new)
 
 			# project points seen in 3rd image into world coordinates to use for next iteration
 			X_new = triangulation.linearTriangulationEigen(K, np.zeros((3, 1)), np.diag([1, 1, 1]), c_new, r_new, inlierImg1Pixels, inlierImg2Pixels)
@@ -229,17 +246,17 @@ def main():
 		# newR, newT, prevRT = combineRT(r, t, prevRT)
 			T.append(c_new)
 			R.append(r_new)
-		
+
 		# # cv2.imshow('prev image',bgrImages[imageIndex])
 		# cv2.imshow('prev image',bgrImages[imageIndex+1])
 		# cv2.waitKey(0)
-		print '--------------------------'
+		print('--------------------------')
 
-	# visualize
-	# vizCameraPose(R, T)
+		# visualize
+		# vizCameraPose(R, T)
+	# plt.show()
 
-
-cv2.destroyAllWindows()
+# cv2.destroyAllWindows()
 
 # visualize the camera pose
 
