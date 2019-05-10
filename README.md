@@ -21,4 +21,4 @@ optional arguments:
                         Default:0.9
 
 ```
-After this file execution, you will have undistorted BGR images in the undistort folder.
+After this file execution, you will have undistorted BGR images in the undistort folder. The code is written such that it takes values from undistort folder and processes it.

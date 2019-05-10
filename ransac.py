@@ -189,4 +189,10 @@ def RANSAC(pixels_img1, pixels_img2, epsilonThresh, inlierRatioThresh):
 	# reverse the effect of normalized coordinates
 	F = norm2.T.dot(F).dot(norm1)
 
-	return F / F[2, 2], return_inlierpoints_img1, return_inlierpoints_img2, best_img1_pixel, best_img2_pixel
+	# F = F / np.linalg.norm(F)
+
+	if F[2, 2] < 0:
+		F = -F
+
+	print(F)
+	return F, return_inlierpoints_img1, return_inlierpoints_img2, best_img1_pixel, best_img2_pixel
