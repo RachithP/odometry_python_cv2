@@ -1,5 +1,5 @@
-# odometry_python_cv2
-Odomtery extraction using sift feature matching
+# Odometry!
+Odometry using *SIFT* feature extraction, feature matching, localization across frames.
 
 ## Instructions to use `visualOdometry.py`
 After you clone this repo, create a folder inside this repo named 'undistort'. Then run `visualOdometry.py` and provide the path to your dataset(images) as the first argument. Example:
